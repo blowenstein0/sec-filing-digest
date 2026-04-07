@@ -1,7 +1,11 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  transpilePackages: [
+    "@aws-sdk/client-ses",
+    "@aws-sdk/lib-dynamodb",
+    "@aws-sdk/client-dynamodb",
+  ],
 };
 
 export default nextConfig;
