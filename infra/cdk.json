@@ -1,0 +1,8 @@
+{
+  "app": "python3 app.py",
+  "context": {
+    "aws_account": "230345070987",
+    "aws_region": "us-east-1",
+    "github_repo": "blowenstein0/sec-filing-digest"
+  }
+}
