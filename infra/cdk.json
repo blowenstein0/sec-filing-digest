@@ -1,0 +1,8 @@
+{
+  "app": "python3 app.py",
+  "context": {
+    "aws_account": "REDACTED_ACCOUNT_ID",
+    "aws_region": "us-east-1",
+    "github_repo": "YOUR_GITHUB_USERNAME/sec-filing-digest"
+  }
+}
