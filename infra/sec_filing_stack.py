@@ -440,7 +440,7 @@ class SecFilingStack(cdk.Stack):
             domain_name="zipperdatabrief.com",
         )
 
-        amplify.CfnDomain(
+        amplify_domain = amplify.CfnDomain(
             self, "AmplifyDomain",
             app_id=amplify_app.attr_app_id,
             domain_name="zipperdatabrief.com",
@@ -451,6 +451,7 @@ class SecFilingStack(cdk.Stack):
                 ),
             ],
         )
+        amplify_domain.add_dependency(amplify_branch)
 
         # --- Outputs ---
         cdk.CfnOutput(self, "InstanceId",
