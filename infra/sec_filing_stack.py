@@ -1,10 +1,12 @@
 import json
 import aws_cdk as cdk
 from aws_cdk import (
+    aws_amplify as amplify,
     aws_dynamodb as dynamodb,
     aws_ec2 as ec2,
     aws_iam as iam,
     aws_logs as logs,
+    aws_route53 as route53,
     aws_s3_assets as s3_assets,
     aws_ses as ses,
     aws_cloudwatch as cloudwatch,
@@ -340,6 +342,116 @@ class SecFilingStack(cdk.Stack):
             ),
         )
 
+        # --- Amplify Frontend ---
+        github_token = cdk.SecretValue.secrets_manager("sec-filing-digest/github-token")
+
+        amplify_role = iam.Role(
+            self, "AmplifyRole",
+            assumed_by=iam.CompositePrincipal(
+                iam.ServicePrincipal("amplify.amazonaws.com"),
+                iam.ServicePrincipal("lambda.amazonaws.com"),
+                iam.ServicePrincipal("edgelambda.amazonaws.com"),
+            ),
+            managed_policies=[
+                iam.ManagedPolicy.from_aws_managed_policy_name(
+                    "service-role/AWSLambdaBasicExecutionRole"
+                ),
+                iam.ManagedPolicy.from_aws_managed_policy_name(
+                    "AdministratorAccess-Amplify"
+                ),
+            ],
+        )
+        users_table.grant_read_write_data(amplify_role)
+        sessions_table.grant_read_write_data(amplify_role)
+        magic_links_table.grant_read_write_data(amplify_role)
+        watchlists_table.grant_read_write_data(amplify_role)
+        amplify_role.add_to_policy(iam.PolicyStatement(
+            actions=["ses:SendEmail", "ses:SendRawEmail"],
+            resources=["*"],
+        ))
+
+        amplify_app = amplify.CfnApp(
+            self, "SecFilingWeb",
+            name="sec-filing-digest",
+            repository=f"https://github.com/{self.node.try_get_context('github_repo') or 'YOUR_GITHUB_USERNAME/sec-filing-digest'}",
+            access_token=github_token.unsafe_unwrap(),
+            iam_service_role=amplify_role.role_arn,
+            compute_role_arn=amplify_role.role_arn,
+            platform="WEB_COMPUTE",
+            build_spec=json.dumps({
+                "version": 1,
+                "applications": [{
+                    "appRoot": "web",
+                    "frontend": {
+                        "phases": {
+                            "preBuild": {"commands": ["npm ci"]},
+                            "build": {"commands": ["npm run build"]},
+                        },
+                        "artifacts": {
+                            "baseDirectory": ".next",
+                            "files": ["**/*"],
+                        },
+                        "cache": {"paths": ["node_modules/**/*"]},
+                    },
+                }],
+            }),
+            environment_variables=[
+                amplify.CfnApp.EnvironmentVariableProperty(
+                    name="AMPLIFY_MONOREPO_APP_ROOT", value="web",
+                ),
+                amplify.CfnApp.EnvironmentVariableProperty(
+                    name="APP_REGION", value="us-east-1",
+                ),
+                amplify.CfnApp.EnvironmentVariableProperty(
+                    name="USERS_TABLE", value=users_table.table_name,
+                ),
+                amplify.CfnApp.EnvironmentVariableProperty(
+                    name="SESSIONS_TABLE", value=sessions_table.table_name,
+                ),
+                amplify.CfnApp.EnvironmentVariableProperty(
+                    name="MAGIC_LINKS_TABLE", value=magic_links_table.table_name,
+                ),
+                amplify.CfnApp.EnvironmentVariableProperty(
+                    name="WATCHLISTS_TABLE", value=watchlists_table.table_name,
+                ),
+                amplify.CfnApp.EnvironmentVariableProperty(
+                    name="SENDER_EMAIL", value="filings@zipperdatabrief.com",
+                ),
+                amplify.CfnApp.EnvironmentVariableProperty(
+                    name="BASE_URL", value="https://sec.zipperdatabrief.com",
+                ),
+                amplify.CfnApp.EnvironmentVariableProperty(
+                    name="NEXT_PUBLIC_BASE_URL", value="https://sec.zipperdatabrief.com",
+                ),
+            ],
+        )
+
+        amplify_branch = amplify.CfnBranch(
+            self, "MainBranch",
+            app_id=amplify_app.attr_app_id,
+            branch_name="main",
+            enable_auto_build=True,
+            framework="Next.js - SSR",
+        )
+
+        # --- Custom Domain ---
+        brief_zone = route53.HostedZone.from_lookup(
+            self, "BriefZone",
+            domain_name="zipperdatabrief.com",
+        )
+
+        amplify.CfnDomain(
+            self, "AmplifyDomain",
+            app_id=amplify_app.attr_app_id,
+            domain_name="zipperdatabrief.com",
+            sub_domain_settings=[
+                amplify.CfnDomain.SubDomainSettingProperty(
+                    branch_name="main",
+                    prefix="sec",
+                ),
+            ],
+        )
+
         # --- Outputs ---
         cdk.CfnOutput(self, "InstanceId",
             value=instance.instance_id,
@@ -350,4 +462,8 @@ class SecFilingStack(cdk.Stack):
         )
         cdk.CfnOutput(self, "AppLogGroupName",
             value=app_log_group.log_group_name,
+        )
+        cdk.CfnOutput(self, "AmplifyAppUrl",
+            value=f"https://main.{amplify_app.attr_default_domain}",
+            description="Amplify frontend URL",
         )
