@@ -3,6 +3,7 @@ import { BASE_URL } from "@/lib/constants";
 
 const ses = new SESClient({ region: process.env.APP_REGION || process.env.AWS_REGION || "us-east-1" });
 const SENDER_EMAIL = process.env.SENDER_EMAIL || "filings@zipperdatabrief.com";
+const ADMIN_EMAIL = "your-email@example.com";
 
 export async function sendMagicLinkEmail(
   email: string,
@@ -49,6 +50,23 @@ export async function sendMagicLinkEmail(
     Message: {
       Subject: { Data: subject, Charset: "UTF-8" },
       Body: { Html: { Data: html, Charset: "UTF-8" } },
+    },
+  }));
+}
+
+export async function sendNewSignupNotification(email: string): Promise<void> {
+  const now = new Date().toISOString();
+  await ses.send(new SendEmailCommand({
+    Source: SENDER_EMAIL,
+    Destination: { ToAddresses: [ADMIN_EMAIL] },
+    Message: {
+      Subject: { Data: `New SEC Filing Digest signup: ${email}`, Charset: "UTF-8" },
+      Body: {
+        Html: {
+          Data: `<p><strong>${email}</strong> just signed up for SEC Filing Digest.</p><p style="color:#888;font-size:13px;">${now}</p>`,
+          Charset: "UTF-8",
+        },
+      },
     },
   }));
 }
