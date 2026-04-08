@@ -14,5 +14,5 @@ export const FORM_TYPES = [
 export const TIER_LIMITS = {
   free: { companies: 3, cadences: ["weekly"] as const },
   pro: { companies: 25, cadences: ["daily", "weekly"] as const },
-  team: { companies: 100, cadences: ["daily", "weekly"] as const },
+  enterprise: { companies: Infinity, cadences: ["daily", "weekly"] as const },
 } as const;
