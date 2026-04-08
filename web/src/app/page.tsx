@@ -93,8 +93,72 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Pricing */}
+      {/* Example digest */}
       <section className="py-16 px-4 bg-gray-50">
+        <div className="max-w-2xl mx-auto">
+          <h2 className="text-2xl font-bold text-center text-gray-900 mb-8">
+            Here&apos;s what you&apos;ll get
+          </h2>
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+            <div className="bg-gray-900 px-6 py-4">
+              <p className="text-white font-bold text-lg">SEC Filing Digest</p>
+              <p className="text-gray-400 text-sm mt-0.5">April 8, 2026</p>
+              <p className="text-gray-400 text-sm mt-1">Watching: AAPL &middot; AMZN &middot; GOOGL &middot; NVDA &middot; TSLA</p>
+            </div>
+            <div className="divide-y divide-gray-100">
+              {[
+                {
+                  company: "NVIDIA Corporation",
+                  form: "8-K",
+                  date: "Mar 6",
+                  summary: "NVIDIA\u2019s Compensation Committee adopted the FY2027 Variable Compensation Plan, with CEO Jen-Hsun Huang\u2019s target bonus set at $4.0M (200% of base salary) and four other executives at $1.5M each, tied to fiscal 2027 revenue achievement.",
+                },
+                {
+                  company: "Amazon.com, Inc.",
+                  form: "8-K",
+                  date: "Mar 16",
+                  summary: "Amazon closed a \u20ac14.5B multi-tranche euro-denominated debt offering with maturities from 2028 to 2064, generating approximately \u20ac14.4B in net proceeds for operations, acquisitions, or balance sheet management.",
+                },
+                {
+                  company: "Apple Inc.",
+                  form: "8-K",
+                  date: "Feb 24",
+                  summary: "Apple held its Annual Meeting where all eight directors were re-elected, Ernst & Young was approved as auditor, and shareholders rejected a \u201cChina Entanglement Audit\u201d proposal by an overwhelming margin (8.94B votes against vs 129M in favor).",
+                },
+                {
+                  company: "Alphabet Inc.",
+                  form: "8-K",
+                  date: "Apr 2",
+                  summary: "VP and Corporate Controller Amie Thuener O\u2019Toole resigned effective April 9, 2026 to pursue another opportunity. Routine executive departure with no disagreements cited.",
+                },
+                {
+                  company: "Tesla, Inc.",
+                  form: "8-K",
+                  date: "Apr 2",
+                  summary: "Tesla produced 408,386 vehicles and delivered 358,023 in Q1 2026, with 8.8 GWh of energy storage deployed. Full financial results to be reported April 22 after market close.",
+                },
+              ].map((item) => (
+                <div key={item.company} className="px-6 py-4">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-gray-900">{item.company}</span>
+                  </div>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-xs font-mono font-bold text-blue-900 bg-blue-50 px-1.5 py-0.5 rounded">{item.form}</span>
+                    <span className="text-xs text-gray-400">{item.date}</span>
+                  </div>
+                  <p className="mt-2 text-sm text-gray-600 leading-relaxed">{item.summary}</p>
+                </div>
+              ))}
+            </div>
+            <div className="px-6 py-3 bg-gray-50 text-xs text-gray-400 text-center border-t border-gray-100">
+              Zipper Data Brief &mdash; SEC Filing Digest
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Pricing */}
+      <section className="py-16 px-4">
         <div className="max-w-4xl mx-auto">
           <h2 className="text-2xl font-bold text-center text-gray-900 mb-12">
             Simple pricing
