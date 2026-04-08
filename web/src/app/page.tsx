@@ -16,7 +16,7 @@ const jsonLd = {
   applicationCategory: "FinanceApplication",
   operatingSystem: "Web",
   description:
-    "AI-summarized SEC filing alerts delivered to your inbox. Monitor EDGAR filings by company, form type, and keyword.",
+    "AI-summarized SEC filing alerts delivered to your inbox. Monitor 10-Ks, 8-Ks, and financial disclosures by company, form type, and keyword.",
   url: "https://sec.zipperdatabrief.com",
   offers: [
     {
@@ -54,7 +54,7 @@ const faqJsonLd = {
       name: "What is SEC Filing Digest?",
       acceptedAnswer: {
         "@type": "Answer",
-        text: "SEC Filing Digest is an AI-powered tool that monitors EDGAR for new SEC filings from companies on your watchlist and delivers plain-language summaries to your inbox daily or weekly.",
+        text: "SEC Filing Digest is an AI-powered tool that monitors new SEC filings from companies on your watchlist and delivers plain-language summaries to your inbox daily or weekly.",
       },
     },
     {
@@ -78,7 +78,7 @@ const faqJsonLd = {
       name: "How does the AI summarization work?",
       acceptedAnswer: {
         "@type": "Answer",
-        text: "When a new filing is detected on EDGAR, the full filing text is fetched and summarized by AI into 2-3 investor-focused sentences highlighting material events, financial changes, and strategic shifts.",
+        text: "When a new filing is detected, the full text is fetched and summarized by AI into 2-3 investor-focused sentences highlighting material events, financial changes, and strategic shifts.",
       },
     },
   ],
@@ -133,7 +133,7 @@ export default function Home() {
               },
               {
                 step: "2",
-                title: "We monitor EDGAR",
+                title: "We monitor new filings",
                 desc: "Every 15 minutes, we check for new filings matching your watchlist.",
               },
               {
@@ -331,7 +331,7 @@ export default function Home() {
       <section className="py-16 px-4">
         <div className="max-w-2xl mx-auto text-center">
           <h2 className="text-2xl font-bold text-gray-900">
-            Stop manually checking EDGAR
+            Stop manually checking for new filings
           </h2>
           <p className="mt-4 text-gray-600">
             Join investors who get AI-summarized SEC filing alerts delivered to their inbox.
