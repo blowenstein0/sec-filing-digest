@@ -120,22 +120,49 @@ def fetch_company_filings(cik: str, form_types: set | None = None) -> list[dict]
 
 
 def fetch_filing_text(cik: str, accession_number: str, primary_document: str) -> str:
-    """Fetch the full text of a filing document. Returns first ~50K chars."""
-    # Build the EDGAR URL: accession number without dashes
+    """Fetch the full text of a filing document. Returns first ~50K chars.
+
+    For 8-Ks that are just wrappers around exhibits, follows the exhibit link
+    to get the actual content (e.g. press releases in Exhibit 99.1).
+    """
     acc_no_dashes = accession_number.replace("-", "")
     padded = pad_cik(cik)
-    url = f"https://www.sec.gov/Archives/edgar/data/{padded}/{acc_no_dashes}/{primary_document}"
+    base_url = f"https://www.sec.gov/Archives/edgar/data/{padded}/{acc_no_dashes}"
+    url = f"{base_url}/{primary_document}"
 
     log.info("Fetching filing text from %s", url)
     resp = requests.get(url, headers=EDGAR_HEADERS, timeout=REQUEST_TIMEOUT)
     resp.raise_for_status()
 
-    text = resp.text
-    # Strip HTML tags for plain text extraction
-    text = re.sub(r"<[^>]+>", " ", text)
+    raw_html = resp.text
+    text = re.sub(r"<[^>]+>", " ", raw_html)
     text = re.sub(r"\s+", " ", text).strip()
 
-    # Truncate to ~50K chars for summarization
+    # If the 8-K text is thin (just a wrapper), try to fetch the exhibit
+    if len(text) < 2000:
+        exhibit_match = re.search(
+            r'href=["\']([^"\']*(?:ex|exhibit)[^"\']*\.htm[l]?)["\']',
+            raw_html, re.IGNORECASE,
+        )
+        if exhibit_match:
+            exhibit_path = exhibit_match.group(1)
+            # Handle relative vs absolute paths
+            if exhibit_path.startswith("http"):
+                exhibit_url = exhibit_path
+            else:
+                exhibit_url = f"{base_url}/{exhibit_path}"
+            log.info("Primary doc is thin, fetching exhibit from %s", exhibit_url)
+            time.sleep(EDGAR_REQUEST_DELAY)
+            try:
+                exhibit_resp = requests.get(exhibit_url, headers=EDGAR_HEADERS, timeout=REQUEST_TIMEOUT)
+                exhibit_resp.raise_for_status()
+                exhibit_text = re.sub(r"<[^>]+>", " ", exhibit_resp.text)
+                exhibit_text = re.sub(r"\s+", " ", exhibit_text).strip()
+                if len(exhibit_text) > len(text):
+                    text = exhibit_text
+            except Exception as e:
+                log.warning("Failed to fetch exhibit: %s", e)
+
     return text[:50000]
 
 
