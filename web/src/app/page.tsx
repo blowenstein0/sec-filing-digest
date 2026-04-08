@@ -102,9 +102,11 @@ export default function Home() {
             Never miss a material SEC filing
           </h1>
           <p className="mt-6 text-lg text-gray-600 leading-relaxed">
-            AI-summarized filing alerts delivered to your inbox. Monitor your
-            watchlist by company, form type, and keyword. Built for investors who
-            can&apos;t afford AlphaSense but can&apos;t afford to miss a filing.
+            SEC Filing Digest is an AI-powered monitoring tool that tracks new
+            SEC filings &mdash; 8-Ks, 10-Ks, 10-Qs, proxy statements &mdash; for
+            companies on your watchlist and delivers plain-language summaries to
+            your inbox daily or weekly. Built for search fund operators, small-fund
+            PMs, and independent analysts.
           </p>
           <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
             <Link

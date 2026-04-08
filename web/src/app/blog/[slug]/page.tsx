@@ -114,6 +114,13 @@ export default async function BlogPostPage({ params }: Props) {
     headline: post.title,
     description: post.description,
     datePublished: post.date,
+    dateModified: post.date,
+    author: {
+      "@type": "Person",
+      name: "Brad Lowenstein",
+      jobTitle: "Founder, Zipper Data Co",
+      url: "https://bradlowenstein.com",
+    },
     publisher: {
       "@type": "Organization",
       name: "Zipper Data Co",
@@ -138,6 +145,11 @@ export default async function BlogPostPage({ params }: Props) {
 
       <article className="mt-6">
         <p className="text-sm text-gray-400">
+          By{" "}
+          <a href="https://bradlowenstein.com" className="text-gray-500 hover:text-gray-700">
+            Brad Lowenstein
+          </a>{" "}
+          &middot;{" "}
           {new Date(post.date).toLocaleDateString("en-US", {
             year: "numeric",
             month: "long",
