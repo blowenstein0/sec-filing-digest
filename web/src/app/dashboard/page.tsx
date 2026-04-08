@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useCallback } from "react";
 import { useWatchlist } from "@/hooks/useWatchlist";
 import AddCompanyForm from "@/components/dashboard/AddCompanyForm";
 import WatchlistTable from "@/components/dashboard/WatchlistTable";
@@ -7,6 +8,22 @@ import PreferencesPanel from "@/components/dashboard/PreferencesPanel";
 
 export default function DashboardPage() {
   const { watchlist, loading, error, add, remove } = useWatchlist();
+  const [saveFn, setSaveFn] = useState<(() => Promise<void>) | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  const handleSave = async () => {
+    if (!saveFn) return;
+    setSaving(true);
+    await saveFn();
+    setSaving(false);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 3000);
+  };
+
+  const registerSave = useCallback((fn: () => Promise<void>) => {
+    setSaveFn(() => fn);
+  }, []);
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -16,7 +33,7 @@ export default function DashboardPage() {
       {/* Preferences */}
       <section className="mt-8 bg-white border border-gray-200 rounded-xl p-6">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">Preferences</h2>
-        <PreferencesPanel />
+        <PreferencesPanel onSave={registerSave} />
       </section>
 
       {/* Watchlist */}
@@ -38,6 +55,17 @@ export default function DashboardPage() {
           )}
         </div>
       </section>
+
+      {/* Save */}
+      <div className="mt-6 flex justify-end">
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="px-6 py-2.5 bg-gray-900 text-white rounded-md font-medium hover:bg-gray-800 disabled:opacity-50"
+        >
+          {saving ? "Saving..." : saved ? "Saved" : "Save Preferences"}
+        </button>
+      </div>
     </div>
   );
 }

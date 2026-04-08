@@ -2,12 +2,10 @@
 
 import { useState, useEffect } from "react";
 
-export default function PreferencesPanel() {
+export default function PreferencesPanel({ onSave }: { onSave?: (fn: () => Promise<void>) => void }) {
   const [cadence, setCadence] = useState("daily");
   const [tier, setTier] = useState("free");
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
 
   useEffect(() => {
     fetch("/api/preferences")
@@ -19,17 +17,17 @@ export default function PreferencesPanel() {
       .finally(() => setLoading(false));
   }, []);
 
-  const handleSave = async () => {
-    setSaving(true);
-    await fetch("/api/preferences", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ cadence }),
-    });
-    setSaving(false);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 3000);
-  };
+  useEffect(() => {
+    if (onSave) {
+      onSave(async () => {
+        await fetch("/api/preferences", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ cadence }),
+        });
+      });
+    }
+  }, [cadence, onSave]);
 
   if (loading) {
     return <div className="animate-pulse h-20 bg-gray-100 rounded-lg" />;
@@ -61,14 +59,6 @@ export default function PreferencesPanel() {
       <div className="text-sm text-gray-500">
         Tier: <span className="font-medium text-gray-700 capitalize">{tier}</span>
       </div>
-
-      <button
-        onClick={handleSave}
-        disabled={saving}
-        className="px-4 py-1.5 bg-gray-900 text-white rounded-md text-sm font-medium hover:bg-gray-800 disabled:opacity-50"
-      >
-        {saving ? "Saving..." : saved ? "Saved" : "Save"}
-      </button>
     </div>
   );
 }
