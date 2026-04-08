@@ -47,9 +47,30 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const orgJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    name: "Zipper Data Co",
+    url: "https://zipperdataco.com",
+    brand: {
+      "@type": "Brand",
+      name: "SEC Filing Digest",
+      url: "https://sec.zipperdatabrief.com",
+    },
+    contactPoint: {
+      "@type": "ContactPoint",
+      email: "sales@zipperdatabrief.com",
+      contactType: "sales",
+    },
+  };
+
   return (
     <html lang="en" className="h-full antialiased">
       <body className="min-h-full flex flex-col bg-white text-gray-900 font-sans">
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(orgJsonLd) }}
+        />
         <Header />
         <main className="flex-1">{children}</main>
         <Footer />
