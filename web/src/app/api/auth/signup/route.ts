@@ -1,5 +1,5 @@
 import { getUser, createUser, createMagicLink } from "@/lib/dynamodb";
-import { sendMagicLinkEmail } from "@/lib/ses";
+import { sendMagicLinkEmail, sendNewSignupNotification } from "@/lib/ses";
 
 export async function POST(request: Request) {
   const { email } = await request.json();
@@ -30,6 +30,10 @@ export async function POST(request: Request) {
 
   const token = await createMagicLink(normalizedEmail, type);
   await sendMagicLinkEmail(normalizedEmail, token, type);
+
+  if (type === "signup") {
+    sendNewSignupNotification(normalizedEmail).catch(() => {});
+  }
 
   return Response.json({ ok: true, type });
 }
