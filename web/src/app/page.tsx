@@ -117,6 +117,9 @@ export default function Home() {
             </Link>
             <span className="text-sm text-gray-500">No credit card required</span>
           </div>
+          <p className="mt-6 text-xs text-gray-400">
+            Monitoring 10,000+ SEC filings daily across all public companies
+          </p>
         </div>
       </section>
 
@@ -136,7 +139,7 @@ export default function Home() {
               {
                 step: "2",
                 title: "We monitor new filings",
-                desc: "Every 15 minutes, we check for new filings matching your watchlist.",
+                desc: "We check for new filings matching your watchlist every day, so you never fall behind.",
               },
               {
                 step: "3",
@@ -333,10 +336,14 @@ export default function Home() {
       <section className="py-16 px-4">
         <div className="max-w-2xl mx-auto text-center">
           <h2 className="text-2xl font-bold text-gray-900">
-            Stop manually checking for new filings
+            The next material filing drops tomorrow.
+            <br />
+            Will you catch it?
           </h2>
           <p className="mt-4 text-gray-600">
-            Join investors who get AI-summarized SEC filing alerts delivered to their inbox.
+            Every day, companies file 8-Ks, proxy statements, and quarterly reports
+            that move stocks. Most investors find out too late. Get the summary
+            before the market reacts.
           </p>
           <Link
             href="/signup"
