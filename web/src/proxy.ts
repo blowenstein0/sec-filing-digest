@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { SESSION_COOKIE_NAME } from "./lib/constants";
+import { SESSION_COOKIE_NAME, BASE_URL } from "./lib/constants";
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -8,7 +8,7 @@ export function proxy(request: NextRequest) {
 
   const protectedPaths = ["/dashboard"];
   if (protectedPaths.some((p) => pathname.startsWith(p)) && !sessionCookie) {
-    return NextResponse.redirect(new URL("/signup", request.url));
+    return NextResponse.redirect(`${BASE_URL}/signup`);
   }
 
   return NextResponse.next();
