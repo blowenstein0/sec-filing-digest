@@ -280,6 +280,7 @@ export default function Home() {
                   "Unlimited companies",
                   "Daily digest",
                   "Everything in Pro",
+                  "Agentic knowledge base access",
                   "Slack integration",
                   "Shared watchlists",
                   "Dedicated support",
