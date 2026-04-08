@@ -66,6 +66,27 @@ export default function DashboardPage() {
           {saving ? "Saving..." : saved ? "Saved" : "Save Preferences"}
         </button>
       </div>
+
+      {/* Share */}
+      <section className="mt-6 bg-gray-50 border border-gray-200 rounded-xl p-6">
+        <h2 className="text-lg font-semibold text-gray-900 mb-1">Share with a friend</h2>
+        <p className="text-sm text-gray-500 mb-4">Know someone who tracks SEC filings? Send them our way.</p>
+        <div className="flex gap-2">
+          <input
+            readOnly
+            value="https://sec.zipperdatabrief.com/signup"
+            className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm text-gray-700 bg-white"
+          />
+          <button
+            onClick={() => {
+              navigator.clipboard.writeText("https://sec.zipperdatabrief.com/signup");
+            }}
+            className="px-4 py-2 bg-blue-900 text-white rounded-md text-sm font-medium hover:bg-blue-800 transition-colors whitespace-nowrap"
+          >
+            Copy Link
+          </button>
+        </div>
+      </section>
     </div>
   );
 }

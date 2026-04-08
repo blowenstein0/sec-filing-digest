@@ -105,8 +105,8 @@ export default function Home() {
             SEC Filing Digest is an AI-powered monitoring tool that tracks new
             SEC filings &mdash; 8-Ks, 10-Ks, 10-Qs, proxy statements &mdash; for
             companies on your watchlist and delivers plain-language summaries to
-            your inbox daily or weekly. Built for search fund operators, small-fund
-            PMs, and independent analysts.
+            your inbox daily or weekly. Built for investors who don&apos;t want
+            to fall behind.
           </p>
           <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
             <Link

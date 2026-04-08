@@ -6,7 +6,7 @@ import Footer from "@/components/layout/Footer";
 export const metadata: Metadata = {
   title: "SEC Filing Digest — AI-Summarized Filing Alerts for Investors",
   description:
-    "Personalized SEC filing alerts with AI summaries. Monitor companies by watchlist, form type, and keyword. Built for search fund operators, small-fund PMs, and independent analysts.",
+    "Personalized SEC filing alerts with AI summaries. Monitor companies by watchlist, form type, and keyword. Built for investors who don't want to fall behind.",
   metadataBase: new URL("https://sec.zipperdatabrief.com"),
   alternates: {
     canonical: "/",

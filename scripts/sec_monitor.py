@@ -355,10 +355,13 @@ def build_digest_html(user_email: str, filings_by_company: dict[str, list[dict]]
     {"".join(sections) if sections else "<p>No new filings matching your watchlist today.</p>"}
 
     <hr style="border:none;border-top:1px solid #eee;margin:24px 0 12px 0;">
+    <p style="font-size:13px;color:#666;margin-bottom:12px;">
+        Know someone who tracks SEC filings? <a href="https://sec.zipperdatabrief.com/signup" style="color:#1a73e8;">Share SEC Filing Digest</a>
+    </p>
     <p style="font-size:12px;color:#999;">
         You're receiving this because you subscribed to SEC filing alerts on Zipper Data Brief.
-        <br><a href="https://zipperdatabrief.com/sec/unsubscribe?email={user_email}" style="color:#999;">Unsubscribe</a>
-        | <a href="https://zipperdatabrief.com/sec/preferences?email={user_email}" style="color:#999;">Manage preferences</a>
+        <br><a href="https://sec.zipperdatabrief.com/unsubscribe?email={user_email}" style="color:#999;">Unsubscribe</a>
+        | <a href="https://sec.zipperdatabrief.com/dashboard" style="color:#999;">Manage preferences</a>
     </p>
 </body>
 </html>"""
