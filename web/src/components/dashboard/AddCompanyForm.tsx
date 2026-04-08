@@ -54,7 +54,7 @@ export default function AddCompanyForm({ onAdd }: Props) {
           value={ticker}
           onChange={(e) => setTicker(e.target.value)}
           placeholder="AAPL, MSFT, TSLA..."
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-900 focus:border-transparent uppercase"
+          className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-900 focus:border-transparent uppercase"
         />
       </div>
       <button

@@ -1,5 +1,5 @@
 export const SESSION_COOKIE_NAME = "sec_session";
-export const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || process.env.BASE_URL || "http://localhost:3000";
+export const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || process.env.BASE_URL || "https://sec.zipperdatabrief.com";
 
 export const FORM_TYPES = [
   { value: "8-K", label: "8-K", description: "Current reports — earnings, M&A, leadership changes" },
