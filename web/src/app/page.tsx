@@ -174,7 +174,7 @@ export default function Home() {
               },
               {
                 name: "Pro",
-                price: "$29/mo",
+                price: "$39/mo",
                 features: [
                   "25 companies",
                   "Daily digest",
