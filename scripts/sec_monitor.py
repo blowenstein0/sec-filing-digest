@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """SEC EDGAR filing monitor - fetches filings, matches watchlists, summarizes with AI, sends digests."""
+from __future__ import annotations
 
 import argparse
 import json
