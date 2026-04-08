@@ -45,7 +45,7 @@ export default function AddCompanyForm({ onAdd }: Props) {
     <form onSubmit={handleSubmit} className="flex gap-2 items-end">
       <div className="flex-1">
         <label htmlFor="ticker" className="block text-sm font-medium text-gray-700 mb-1">
-          Add company by ticker
+          Add one ticker at a time
         </label>
         <input
           id="ticker"
@@ -53,7 +53,7 @@ export default function AddCompanyForm({ onAdd }: Props) {
           required
           value={ticker}
           onChange={(e) => setTicker(e.target.value)}
-          placeholder="AAPL, MSFT, TSLA..."
+          placeholder="e.g. AAPL"
           className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-900 focus:border-transparent uppercase"
         />
       </div>
