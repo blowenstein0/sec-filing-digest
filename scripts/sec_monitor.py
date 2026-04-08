@@ -279,8 +279,12 @@ Filing text (truncated):
 
 # --- Email Delivery ---
 
-def build_digest_html(user_email: str, filings_by_company: dict[str, list[dict]]) -> str:
+def build_digest_html(user_email: str, filings_by_company: dict[str, list[dict]], tickers: list[str] | None = None) -> str:
     """Build the HTML email digest for a user."""
+    ticker_line = ""
+    if tickers:
+        ticker_line = f'<p style="color:#666;margin-top:4px;font-size:14px;">Watching: {" &middot; ".join(sorted(tickers))}</p>'
+
     sections = []
 
     for company_name, filings in sorted(filings_by_company.items()):
@@ -317,6 +321,7 @@ def build_digest_html(user_email: str, filings_by_company: dict[str, list[dict]]
 <body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:640px;margin:0 auto;padding:20px;color:#333;">
     <h1 style="font-size:22px;margin-bottom:4px;">SEC Filing Digest</h1>
     <p style="color:#888;margin-top:0;">{datetime.now(timezone.utc).strftime('%B %d, %Y')}</p>
+    {ticker_line}
     <hr style="border:none;border-top:1px solid #eee;margin:16px 0;">
 
     {"".join(sections) if sections else "<p>No new filings matching your watchlist today.</p>"}
@@ -456,8 +461,10 @@ def send_digests():
             log.info("No matching filings for %s. Skipping.", email)
             continue
 
+        tickers = [e.get("ticker", "").upper() for e in watchlist if e.get("ticker")]
+
         try:
-            html_body = build_digest_html(email, filings_by_company)
+            html_body = build_digest_html(email, filings_by_company, tickers=tickers)
             send_digest_email(ses, email, html_body)
         except Exception as e:
             log.error("Failed to send digest to %s: %s", email, e)
