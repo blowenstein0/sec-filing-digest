@@ -42,7 +42,7 @@ export async function GET(request: Request) {
   const match = map.get(ticker);
 
   if (!match) {
-    return Response.json({ error: `Ticker "${ticker}" not found in SEC EDGAR` }, { status: 404 });
+    return Response.json({ error: `Ticker "${ticker}" not found` }, { status: 404 });
   }
 
   return Response.json({ cik: match.cik, company_name: match.name, ticker });

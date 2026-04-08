@@ -1,0 +1,45 @@
+# SEC Filing Digest
+
+> AI-summarized SEC filing alerts for investors. Monitor financial disclosures by company, form type, and keyword.
+
+SEC Filing Digest monitors new SEC filings matching your watchlist and delivers AI-generated plain-language summaries to your inbox daily or weekly.
+
+## What it does
+
+- Monitors for new SEC filings (8-K, 10-K, 10-Q, 13F, SC 13D, DEF 14A)
+- Summarizes each filing in 2-3 investor-focused sentences using AI
+- Delivers personalized digest emails based on your company watchlist
+- Tracks filings by company (ticker or CIK), form type, and keyword
+
+## Who it's for
+
+- Search fund operators tracking acquisition targets
+- Small-fund portfolio managers who need affordable filing monitoring
+- Independent analysts and individual investors tracking financial disclosures
+- Anyone who needs to stay on top of material SEC filings
+
+## Pricing
+
+- Free: 3 companies, weekly digest
+- Pro ($39/month): 25 companies, daily digest, all form types, keyword alerts
+- Enterprise: custom pricing, contact sales@zipperdatabrief.com
+
+## Filing types tracked
+
+- 8-K: Current reports (earnings, M&A, leadership changes)
+- 10-K: Annual reports (full financial and operational overview)
+- 10-Q: Quarterly reports (financials and MD&A)
+- 13F: Institutional holdings (what big funds are buying/selling)
+- SC 13D: Beneficial ownership (activist positions, >5% stakes)
+- DEF 14A: Proxy statements (exec comp, board composition)
+
+## Links
+
+- Website: https://sec.zipperdatabrief.com
+- Sign up: https://sec.zipperdatabrief.com/signup
+- Blog: https://sec.zipperdatabrief.com/blog
+- Enterprise inquiries: sales@zipperdatabrief.com
+
+## Built by
+
+Zipper Data Co (https://zipperdataco.com)
