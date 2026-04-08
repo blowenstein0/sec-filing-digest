@@ -122,17 +122,19 @@ export default function Home() {
                 highlight: true,
               },
               {
-                name: "Team",
-                price: "$79/mo",
+                name: "Enterprise",
+                price: "Custom",
                 features: [
-                  "100 companies",
+                  "Unlimited companies",
                   "Daily digest",
                   "Everything in Pro",
                   "Slack integration",
                   "Shared watchlists",
+                  "Dedicated support",
                 ],
-                cta: "Contact Us",
+                cta: "Contact Sales",
                 highlight: false,
+                href: "mailto:sales@zipperdatabrief.com",
               },
             ].map((tier) => (
               <div
@@ -153,16 +155,25 @@ export default function Home() {
                     </li>
                   ))}
                 </ul>
-                <Link
-                  href="/signup"
-                  className={`mt-6 block text-center py-2 rounded-md font-medium text-sm ${
-                    tier.highlight
-                      ? "bg-blue-900 text-white hover:bg-blue-800"
-                      : "border border-gray-300 text-gray-700 hover:bg-gray-50"
-                  }`}
-                >
-                  {tier.cta}
-                </Link>
+                {"href" in tier ? (
+                  <a
+                    href={tier.href}
+                    className="mt-6 block text-center py-2 rounded-md font-medium text-sm border border-gray-300 text-gray-700 hover:bg-gray-50"
+                  >
+                    {tier.cta}
+                  </a>
+                ) : (
+                  <Link
+                    href="/signup"
+                    className={`mt-6 block text-center py-2 rounded-md font-medium text-sm ${
+                      tier.highlight
+                        ? "bg-blue-900 text-white hover:bg-blue-800"
+                        : "border border-gray-300 text-gray-700 hover:bg-gray-50"
+                    }`}
+                  >
+                    {tier.cta}
+                  </Link>
+                )}
               </div>
             ))}
           </div>

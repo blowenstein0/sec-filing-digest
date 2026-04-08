@@ -8,7 +8,7 @@ export interface User {
   email: string;
   status: UserStatus;
   cadence: Cadence;
-  tier: "free" | "pro" | "team";
+  tier: "free" | "pro" | "enterprise";
   createdAt: string;
   verifiedAt?: string;
   unsubscribeToken: string;
