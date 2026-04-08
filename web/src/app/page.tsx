@@ -281,6 +281,7 @@ export default function Home() {
                   "Daily digest",
                   "Everything in Pro",
                   "Agentic knowledge base access",
+                  "Claude Code & OpenClaw integration",
                   "Slack integration",
                   "Shared watchlists",
                   "Dedicated support",
