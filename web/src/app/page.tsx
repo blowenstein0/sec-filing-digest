@@ -9,9 +9,92 @@ const FORM_TYPES_PREVIEW = [
   { label: "DEF 14A", desc: "Proxy statements" },
 ];
 
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  name: "SEC Filing Digest",
+  applicationCategory: "FinanceApplication",
+  operatingSystem: "Web",
+  description:
+    "AI-summarized SEC filing alerts delivered to your inbox. Monitor EDGAR filings by company, form type, and keyword.",
+  url: "https://sec.zipperdatabrief.com",
+  offers: [
+    {
+      "@type": "Offer",
+      name: "Free",
+      price: "0",
+      priceCurrency: "USD",
+      description: "3 companies, weekly digest",
+    },
+    {
+      "@type": "Offer",
+      name: "Pro",
+      price: "39",
+      priceCurrency: "USD",
+      priceSpecification: {
+        "@type": "UnitPriceSpecification",
+        billingDuration: "P1M",
+      },
+      description: "25 companies, daily digest, all form types, keyword alerts",
+    },
+  ],
+  provider: {
+    "@type": "Organization",
+    name: "Zipper Data Co",
+    url: "https://zipperdataco.com",
+  },
+};
+
+const faqJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: [
+    {
+      "@type": "Question",
+      name: "What is SEC Filing Digest?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "SEC Filing Digest is an AI-powered tool that monitors EDGAR for new SEC filings from companies on your watchlist and delivers plain-language summaries to your inbox daily or weekly.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "What SEC filing types does it track?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "SEC Filing Digest tracks 8-K (current reports), 10-K (annual reports), 10-Q (quarterly reports), 13F (institutional holdings), SC 13D (activist stakes), and DEF 14A (proxy statements).",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "How much does SEC Filing Digest cost?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "The free tier includes 3 companies with weekly digests. The Pro tier costs $39/month and includes 25 companies, daily digests, all form types, and keyword alerts. Enterprise pricing is available for larger teams.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "How does the AI summarization work?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "When a new filing is detected on EDGAR, the full filing text is fetched and summarized by AI into 2-3 investor-focused sentences highlighting material events, financial changes, and strategic shifts.",
+      },
+    },
+  ],
+};
+
 export default function Home() {
   return (
     <div>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
+      />
       {/* Hero */}
       <section className="py-20 px-4">
         <div className="max-w-3xl mx-auto text-center">

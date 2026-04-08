@@ -8,17 +8,37 @@ export const metadata: Metadata = {
   description:
     "Personalized SEC filing alerts with AI summaries. Monitor companies by watchlist, form type, and keyword. Built for search fund operators, small-fund PMs, and independent analysts.",
   metadataBase: new URL("https://sec.zipperdatabrief.com"),
+  alternates: {
+    canonical: "/",
+  },
   openGraph: {
     type: "website",
     title: "SEC Filing Digest — AI-Summarized Filing Alerts",
     description:
-      "Never miss a material SEC filing again. AI-summarized alerts delivered to your inbox.",
+      "Never miss a material SEC filing. AI-summarized 8-K, 10-K, 10-Q, and proxy alerts delivered daily or weekly.",
     siteName: "SEC Filing Digest",
+    url: "https://sec.zipperdatabrief.com",
   },
   twitter: {
-    card: "summary",
+    card: "summary_large_image",
     title: "SEC Filing Digest",
-    description: "AI-summarized SEC filing alerts for investors.",
+    description: "AI-summarized SEC filing alerts for investors. Monitor EDGAR filings by company, form type, and keyword.",
+  },
+  keywords: [
+    "SEC filing alerts",
+    "EDGAR monitoring",
+    "SEC filing digest",
+    "AI SEC filing summary",
+    "8-K alerts",
+    "10-K alerts",
+    "SEC filing notifications",
+    "EDGAR filing tracker",
+    "SEC filings email",
+    "investor filing alerts",
+  ],
+  robots: {
+    index: true,
+    follow: true,
   },
 };
 
