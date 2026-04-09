@@ -582,7 +582,7 @@ class SecFilingStack(cdk.Stack):
         )
 
         fargate_log_group = logs.LogGroup(
-            self, "FargateLogGroup",
+            self, "FargateWebLogGroup",
             log_group_name="/sec-filing-digest/fargate-web",
             retention=logs.RetentionDays.ONE_MONTH,
             removal_policy=cdk.RemovalPolicy.DESTROY,
@@ -687,7 +687,7 @@ class SecFilingStack(cdk.Stack):
         cdk.CfnOutput(self, "AlbDnsName",
             value=alb.load_balancer_dns_name,
         )
-        cdk.CfnOutput(self, "FargateLogGroup",
+        cdk.CfnOutput(self, "FargateLogGroupOutput",
             value=fargate_log_group.log_group_name,
         )
 
