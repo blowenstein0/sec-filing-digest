@@ -11,6 +11,8 @@ export function useResearch() {
   const [error, setError] = useState<string | null>(null);
   const [activeSteps, setActiveSteps] = useState<AgentStep[]>([]);
   const abortRef = useRef<AbortController | null>(null);
+  const messagesRef = useRef(messages);
+  messagesRef.current = messages;
 
   const sendQuery = useCallback(async (query: string) => {
     setError(null);
@@ -30,10 +32,16 @@ export function useResearch() {
     abortRef.current = controller;
 
     try {
+      // Build conversation history for context (just role + content, no metadata)
+      const history = messagesRef.current.map((m) => ({
+        role: m.role,
+        content: m.content,
+      }));
+
       const response = await fetch("/api/research/query", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query }),
+        body: JSON.stringify({ query, history }),
         signal: controller.signal,
       });
 

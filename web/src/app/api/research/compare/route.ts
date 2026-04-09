@@ -28,7 +28,7 @@ export async function POST(request: Request) {
       }
 
       try {
-        const result = await runResearchAgent(naturalQuery, (step) => {
+        const result = await runResearchAgent(naturalQuery, [], (step) => {
           sendEvent("progress", {
             step: step.label,
             status: step.status,

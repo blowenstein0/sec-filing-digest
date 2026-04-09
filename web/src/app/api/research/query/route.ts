@@ -8,11 +8,15 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json();
-  const { query } = body;
+  const { query, history } = body;
 
   if (!query || typeof query !== "string") {
     return Response.json({ error: "Query required" }, { status: 400 });
   }
+
+  // Validate history if provided
+  const chatHistory: { role: string; content: string }[] =
+    Array.isArray(history) ? history.slice(-10) : []; // Keep last 10 turns max
 
   const encoder = new TextEncoder();
 
@@ -24,7 +28,7 @@ export async function POST(request: Request) {
       }
 
       try {
-        const result = await runResearchAgent(query, (step) => {
+        const result = await runResearchAgent(query, chatHistory, (step) => {
           sendEvent("progress", {
             step: step.label,
             status: step.status,

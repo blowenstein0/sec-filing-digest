@@ -10,6 +10,7 @@ const TIMEOUT_MS = 25_000; // Force synthesis at 25s
 
 export async function runResearchAgent(
   query: string,
+  chatHistory: { role: string; content: string }[],
   onProgress: (step: AgentStep) => void
 ): Promise<AgentResult> {
   resetRateLimit();
@@ -33,10 +34,17 @@ export async function runResearchAgent(
     return step;
   }
 
-  // Initialize conversation
-  const messages: Message[] = [
-    { role: "user", content: [{ text: query }] },
-  ];
+  // Initialize conversation with prior chat history for context
+  const messages: Message[] = [];
+
+  // Add prior turns as simple text messages (no tool use history)
+  for (const turn of chatHistory) {
+    const role = turn.role === "assistant" ? "assistant" : "user";
+    messages.push({ role, content: [{ text: turn.content }] });
+  }
+
+  // Add the current query
+  messages.push({ role: "user", content: [{ text: query }] });
 
   emitStep("Analyzing question", "running");
 
