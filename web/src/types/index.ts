@@ -87,12 +87,21 @@ export interface CompanyResearch {
   financials: FinancialMetric[];
 }
 
+export interface AgentStep {
+  id: string;
+  label: string;
+  detail?: string;
+  status: "running" | "complete" | "error";
+  timestamp: string;
+}
+
 export interface ChatMessage {
   id: string;
   role: "user" | "assistant";
   content: string;
   sources?: Citation[];
   comparison?: ComparisonData;
+  steps?: AgentStep[];
   timestamp: string;
 }
 
