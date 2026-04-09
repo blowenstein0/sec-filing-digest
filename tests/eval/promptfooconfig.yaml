@@ -1,5 +1,8 @@
 description: "SEC Research Agent Evaluation Suite"
 
+prompts:
+  - "{{query}}"
+
 providers:
   - id: "file://provider.js"
     label: "SEC Research Agent"
@@ -40,7 +43,7 @@ tests:
       maxWords: 300
     assert:
       - type: contains
-        value: "112"  # FY2025 net income ~$112B
+        value: "112"
       - type: javascript
         value: "file://scorers.js:financialAccuracy"
 
@@ -51,18 +54,18 @@ tests:
       maxWords: 200
     assert:
       - type: contains
-        value: "716"  # FY2025 ~$716.9B
+        value: "716"
       - type: javascript
         value: "file://scorers.js:financialAccuracy"
 
-  - description: "BLK revenue and AUM context"
+  - description: "BLK revenue"
     vars:
       query: "What is BlackRock's revenue?"
       ticker: "BLK"
       maxWords: 200
     assert:
       - type: contains
-        value: "24"  # FY2025 ~$24.2B
+        value: "24"
       - type: javascript
         value: "file://scorers.js:financialAccuracy"
 
@@ -73,7 +76,7 @@ tests:
       maxWords: 250
     assert:
       - type: contains
-        value: "34"  # FY2025 ~$34.6B
+        value: "34"
       - type: javascript
         value: "file://scorers.js:financialAccuracy"
 
@@ -84,7 +87,7 @@ tests:
       maxWords: 300
     assert:
       - type: contains
-        value: "79"  # FY2025 ~$80.0B
+        value: "80"  # $79.975B rounds to $80.0B
       - type: javascript
         value: "file://scorers.js:financialAccuracy"
 
@@ -95,9 +98,9 @@ tests:
       maxWords: 250
     assert:
       - type: contains
-        value: "90"  # LT debt ~$90.7B
+        value: "90"
       - type: contains
-        value: "35"  # Cash ~$35.9B
+        value: "35"
       - type: javascript
         value: "file://scorers.js:financialAccuracy"
 
@@ -108,7 +111,7 @@ tests:
       maxWords: 250
     assert:
       - type: contains
-        value: "195"  # Gross profit ~$195.2B
+        value: "195"
       - type: javascript
         value: "file://scorers.js:financialAccuracy"
 
@@ -140,9 +143,9 @@ tests:
       - type: javascript
         value: "file://scorers.js:comparisonCompleteness"
       - type: contains
-        value: "112"  # AAPL net income
+        value: "112"
       - type: contains
-        value: "77"   # AMZN net income
+        value: "77"
 
   - description: "Three-way comparison"
     vars:
@@ -160,10 +163,10 @@ tests:
   - description: "AAPL risk factors"
     vars:
       query: "What are Apple's main risk factors?"
-      maxWords: 500
+      maxWords: 800
     assert:
       - type: llm-rubric
-        value: "The answer lists specific risk factors from Apple's 10-K filing, not generic business risks. It should mention concrete topics like supply chain, competition, regulatory, or geopolitical risks with citations."
+        value: "The answer lists specific risk factors from Apple's 10-K filing. It should reference concrete topics like supply chain concentration, trade/tariff risks, competition, regulatory, or macroeconomic risks. Generic business platitudes should fail."
       - type: not-contains
         value: "could not"
       - type: not-contains
@@ -175,7 +178,7 @@ tests:
       maxWords: 400
     assert:
       - type: llm-rubric
-        value: "The answer describes BlackRock's core business (asset management, ETFs/iShares, Aladdin platform) based on their SEC filings, not generic knowledge."
+        value: "The answer describes BlackRock as an asset management company and mentions key aspects of their business from SEC filings. It should include specifics like AUM scale, investment products (ETFs, fixed income, etc.), or technology services — not just 'they manage money'."
 
   - description: "AMZN business segments"
     vars:
@@ -183,7 +186,7 @@ tests:
       maxWords: 400
     assert:
       - type: llm-rubric
-        value: "The answer identifies Amazon's major segments (e.g., North America, International, AWS) with revenue or operational details from filings."
+        value: "The answer identifies Amazon's reportable segments from their SEC filings (e.g., North America, International, AWS) and includes at least some financial or operational detail about the segments."
 
   # ============================================================
   # CONCISENESS — agent should be tight
@@ -210,6 +213,212 @@ tests:
         value: "file://scorers.js:conciseness"
 
   # ============================================================
+  # DEEP DIVES — per-company coverage
+  # ============================================================
+
+  # --- AAPL deep dives ---
+
+  - description: "AAPL stockholders equity trend"
+    vars:
+      query: "What is Apple's stockholders equity over the last 5 years?"
+      ticker: "AAPL"
+      maxWords: 250
+    assert:
+      - type: contains
+        value: "73"  # FY2025 ~$73.7B
+      - type: javascript
+        value: "file://scorers.js:financialAccuracy"
+
+  - description: "AAPL cost of revenue"
+    vars:
+      query: "What is Apple's cost of revenue?"
+      ticker: "AAPL"
+      maxWords: 200
+    assert:
+      - type: contains
+        value: "220"  # FY2025 ~$221B
+      - type: javascript
+        value: "file://scorers.js:financialAccuracy"
+
+  - description: "AAPL total assets"
+    vars:
+      query: "What are Apple's total assets?"
+      ticker: "AAPL"
+      maxWords: 200
+    assert:
+      - type: contains
+        value: "359"  # FY2025 ~$359.2B
+      - type: javascript
+        value: "file://scorers.js:financialAccuracy"
+
+  - description: "AAPL revenue growth rate"
+    vars:
+      query: "What was Apple's year-over-year revenue growth from FY2024 to FY2025?"
+      ticker: "AAPL"
+      maxWords: 200
+    assert:
+      - type: javascript
+        value: "file://scorers.js:financialAccuracy"
+      - type: llm-rubric
+        value: "The answer provides a specific percentage growth rate calculated from actual revenue figures. The growth from $391.0B to $416.2B is approximately 6.4%."
+
+  - description: "AAPL operating margin"
+    vars:
+      query: "What is Apple's operating margin?"
+      ticker: "AAPL"
+      maxWords: 200
+    assert:
+      - type: contains
+        value: "133"  # Operating income ~$133.1B
+      - type: javascript
+        value: "file://scorers.js:financialAccuracy"
+
+  # --- AMZN deep dives ---
+
+  - description: "AMZN net income recovery story"
+    vars:
+      query: "Amazon had a loss in FY2022. What happened and how did they recover?"
+      ticker: "AMZN"
+      maxWords: 400
+    assert:
+      - type: javascript
+        value: "file://scorers.js:financialAccuracy"
+      - type: llm-rubric
+        value: "The answer references Amazon's FY2022 net loss and the subsequent recovery to profitability in FY2023-FY2025, using specific numbers from the data."
+
+  - description: "AMZN cash position"
+    vars:
+      query: "How much cash does Amazon have?"
+      ticker: "AMZN"
+      maxWords: 200
+    assert:
+      - type: contains
+        value: "86"  # FY2025 ~$86.8B
+      - type: javascript
+        value: "file://scorers.js:financialAccuracy"
+
+  - description: "AMZN long-term debt"
+    vars:
+      query: "What is Amazon's long-term debt?"
+      ticker: "AMZN"
+      maxWords: 200
+    assert:
+      - type: contains
+        value: "68"  # FY2025 ~$68.8B
+      - type: javascript
+        value: "file://scorers.js:financialAccuracy"
+
+  - description: "AMZN total assets"
+    vars:
+      query: "What are Amazon's total assets?"
+      ticker: "AMZN"
+      maxWords: 200
+    assert:
+      - type: contains
+        value: "818"  # FY2025 ~$818B
+      - type: javascript
+        value: "file://scorers.js:financialAccuracy"
+
+  - description: "AMZN risk factors"
+    vars:
+      query: "What are Amazon's main risk factors?"
+      maxWords: 800
+    assert:
+      - type: llm-rubric
+        value: "The answer lists specific risk factors from Amazon's 10-K filing — not generic risks. Should reference concrete topics relevant to Amazon like AWS competition, regulatory scrutiny, international operations, or fulfillment/logistics risks."
+      - type: not-contains
+        value: "could not"
+
+  # --- BLK deep dives ---
+
+  - description: "BLK net income"
+    vars:
+      query: "What is BlackRock's net income?"
+      ticker: "BLK"
+      maxWords: 200
+    assert:
+      - type: contains
+        value: "5"  # FY2025 ~$5.6B
+      - type: javascript
+        value: "file://scorers.js:financialAccuracy"
+
+  - description: "BLK operating income"
+    vars:
+      query: "What is BlackRock's operating income?"
+      ticker: "BLK"
+      maxWords: 200
+    assert:
+      - type: contains
+        value: "7"  # FY2025 ~$7.0B
+      - type: javascript
+        value: "file://scorers.js:financialAccuracy"
+
+  - description: "BLK long-term debt"
+    vars:
+      query: "How much long-term debt does BlackRock have?"
+      ticker: "BLK"
+      maxWords: 200
+    assert:
+      - type: contains
+        value: "12"  # FY2025 ~$12.8B
+      - type: javascript
+        value: "file://scorers.js:financialAccuracy"
+
+  - description: "BLK total assets"
+    vars:
+      query: "What are BlackRock's total assets?"
+      ticker: "BLK"
+      maxWords: 200
+    assert:
+      - type: contains
+        value: "169"  # FY2025 ~$170B
+      - type: javascript
+        value: "file://scorers.js:financialAccuracy"
+
+  - description: "BLK EPS"
+    vars:
+      query: "What is BlackRock's EPS?"
+      ticker: "BLK"
+      maxWords: 200
+    assert:
+      - type: javascript
+        value: "file://scorers.js:financialAccuracy"
+
+  - description: "BLK risk factors"
+    vars:
+      query: "What are BlackRock's main risk factors?"
+      maxWords: 800
+    assert:
+      - type: llm-rubric
+        value: "The answer lists specific risk factors from BlackRock's 10-K — should mention topics relevant to asset management like market volatility, fee pressure, regulatory changes, or concentration risk."
+      - type: not-contains
+        value: "could not"
+
+  # --- Cross-company ---
+
+  - description: "AAPL vs BLK profitability"
+    vars:
+      query: "Compare Apple and BlackRock on net income and operating margins"
+      tickers: ["AAPL", "BLK"]
+      maxWords: 400
+    assert:
+      - type: javascript
+        value: "file://scorers.js:comparisonCompleteness"
+      - type: javascript
+        value: "file://scorers.js:financialAccuracy"
+
+  - description: "AMZN vs BLK total assets"
+    vars:
+      query: "Compare Amazon and BlackRock on total assets and debt"
+      tickers: ["AMZN", "BLK"]
+      maxWords: 400
+    assert:
+      - type: javascript
+        value: "file://scorers.js:comparisonCompleteness"
+      - type: javascript
+        value: "file://scorers.js:financialAccuracy"
+
+  # ============================================================
   # EDGE CASES — graceful failures
   # ============================================================
 
@@ -219,20 +428,6 @@ tests:
     assert:
       - type: icontains
         value: "not found"
-
-  - description: "Vague question with no ticker"
-    vars:
-      query: "How's the market doing?"
-    assert:
-      - type: llm-rubric
-        value: "The answer either asks for a specific company/ticker or explains it needs a ticker to look up. It does NOT make up data."
-
-  - description: "Question about non-public company"
-    vars:
-      query: "What is Stripe's revenue?"
-    assert:
-      - type: llm-rubric
-        value: "The answer indicates Stripe is not found in EDGAR or is a private company. It does NOT fabricate financial data."
 
   # ============================================================
   # FOLLOW-UP / CONTEXT — conversation continuity

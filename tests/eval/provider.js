@@ -11,7 +11,9 @@ class ResearchProvider {
     return "sec-research-agent";
   }
 
-  async callApi(prompt) {
+  async callApi(prompt, context) {
+    // promptfoo passes vars via context — use query from vars, fall back to prompt
+    const query = context?.vars?.query || prompt;
     const startTime = Date.now();
 
     try {
@@ -21,7 +23,7 @@ class ResearchProvider {
           "Content-Type": "application/json",
           Cookie: COOKIE,
         },
-        body: JSON.stringify({ query: prompt }),
+        body: JSON.stringify({ query }),
       });
 
       if (!response.ok) {
@@ -31,7 +33,7 @@ class ResearchProvider {
 
       const contentType = response.headers.get("content-type") || "";
 
-      // JSON response (non-streaming)
+      // JSON response
       if (contentType.includes("application/json")) {
         const data = await response.json();
         return {
@@ -46,7 +48,7 @@ class ResearchProvider {
         };
       }
 
-      // SSE response (streaming)
+      // SSE response
       const text = await response.text();
       const lines = text.split("\n");
       let answer = null;
@@ -71,17 +73,12 @@ class ResearchProvider {
             error = event.message;
           }
         } catch {
-          // skip malformed events
+          // skip malformed
         }
       }
 
-      if (error) {
-        return { error };
-      }
-
-      if (!answer) {
-        return { error: "No answer received from agent" };
-      }
+      if (error) return { error };
+      if (!answer) return { error: "No answer received from agent" };
 
       return {
         output: answer,
