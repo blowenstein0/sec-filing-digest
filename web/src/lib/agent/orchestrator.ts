@@ -5,8 +5,8 @@ import { RESEARCH_AGENT_SYSTEM, SYNTHESIZE_NOW } from "./prompts";
 import type { AgentStep, AgentResult } from "./types";
 import type { Citation, ComparisonData } from "@/types";
 
-const MAX_ROUNDS = 4;
-const TIMEOUT_MS = 25_000; // Force synthesis at 25s to stay within Amplify's timeout
+const MAX_ROUNDS = 6;
+const TIMEOUT_MS = 50_000; // Force synthesis at 50s (Fargate has no timeout limit)
 
 export async function runResearchAgent(
   query: string,
@@ -56,7 +56,6 @@ export async function runResearchAgent(
     console.log(`[AGENT] Round ${round + 1}/${MAX_ROUNDS} | Elapsed: ${elapsed}ms`);
     if (elapsed > TIMEOUT_MS) {
       emitStep("Deep analysis (Opus, time limit)", "running");
-      // Force a text response by removing tools — use Opus for quality
       messages.push({
         role: "user",
         content: [{ text: SYNTHESIZE_NOW }],
@@ -66,7 +65,7 @@ export async function runResearchAgent(
         system: RESEARCH_AGENT_SYSTEM,
         messages,
         maxTokens: 4096,
-        toolConfig: TOOL_CONFIG, // Required when history contains tool blocks
+        toolConfig: TOOL_CONFIG,
       });
       const answer = extractText(finalResponse.output);
       markLastRunningComplete(allSteps);
@@ -85,12 +84,10 @@ export async function runResearchAgent(
     markLastRunningComplete(allSteps);
     console.log(`[AGENT] Sonnet stopReason: ${response.stopReason} | Usage: ${JSON.stringify(response.usage)}`);
 
-    // If model returned text (end_turn), synthesize final answer with Opus
+    // Sonnet is done gathering — hand off to Opus for final synthesis
     if (response.stopReason === "end_turn" || response.stopReason === "max_tokens") {
-      // Sonnet produced an initial answer — now hand off to Opus for deeper synthesis
       const sonnetAnswer = extractText(response.output);
       console.log(`[AGENT] Sonnet answer (${sonnetAnswer.length} chars): ${sonnetAnswer.slice(0, 200)}...`);
-      console.log(`[AGENT] Handing off to Opus for final synthesis...`);
       messages.push({ role: "assistant", content: response.output });
 
       emitStep("Deep analysis (Opus)", "running");
@@ -107,10 +104,8 @@ export async function runResearchAgent(
       });
       let answer = extractText(opusResponse.output);
       console.log(`[AGENT] Opus stopReason: ${opusResponse.stopReason} | Usage: ${JSON.stringify(opusResponse.usage)}`);
-
-      // If Opus tried to call tools instead of answering, fall back to Sonnet's answer
       if (!answer || opusResponse.stopReason === "tool_use") {
-        console.log(`[AGENT] Opus returned tool_use or empty — falling back to Sonnet answer`);
+        console.log(`[AGENT] Opus returned tool_use or empty — using Sonnet answer`);
         answer = sonnetAnswer;
       }
       console.log(`[AGENT] Final answer (${answer.length} chars): ${answer.slice(0, 200)}...`);

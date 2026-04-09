@@ -9,12 +9,14 @@ export function useResearch() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [activeSteps, setActiveSteps] = useState<AgentStep[]>([]);
   const abortRef = useRef<AbortController | null>(null);
   const messagesRef = useRef(messages);
   messagesRef.current = messages;
 
   const sendQuery = useCallback(async (query: string) => {
     setError(null);
+    setActiveSteps([]);
 
     const userMessage: ChatMessage = {
       id: `msg-${nextId++}`,
@@ -41,24 +43,91 @@ export function useResearch() {
         signal: controller.signal,
       });
 
-      const data = await response.json();
-
       if (!response.ok) {
+        const data = await response.json();
         setError(data.error || "Something went wrong.");
+        setLoading(false);
         return;
       }
 
-      const assistantMessage: ChatMessage = {
-        id: `msg-${nextId++}`,
-        role: "assistant",
-        content: data.answer,
-        sources: data.sources as Citation[] | undefined,
-        comparison: data.comparison as ComparisonData | undefined,
-        steps: data.steps as AgentStep[] | undefined,
-        logId: data.logId as string | undefined,
-        timestamp: new Date().toISOString(),
-      };
-      setMessages((prev) => [...prev, assistantMessage]);
+      const reader = response.body?.getReader();
+      if (!reader) {
+        setError("No response stream.");
+        setLoading(false);
+        return;
+      }
+
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          const jsonStr = line.slice(6);
+          if (!jsonStr) continue;
+
+          try {
+            const event = JSON.parse(jsonStr);
+
+            if (event.type === "progress") {
+              setActiveSteps((prev) => {
+                const existing = prev.find(
+                  (s) => s.label === event.step && s.status === "running"
+                );
+                if (existing) {
+                  return prev.map((s) =>
+                    s === existing
+                      ? { ...s, status: event.status, detail: event.detail }
+                      : s
+                  );
+                }
+                return [
+                  ...prev.map((s) =>
+                    s.status === "running" ? { ...s, status: "complete" as const } : s
+                  ),
+                  {
+                    id: `step-${nextId++}`,
+                    label: event.step,
+                    status: event.status || "running",
+                    detail: event.detail,
+                    timestamp: new Date().toISOString(),
+                  },
+                ];
+              });
+            }
+
+            if (event.type === "answer") {
+              const assistantMessage: ChatMessage = {
+                id: `msg-${nextId++}`,
+                role: "assistant",
+                content: event.content,
+                sources: event.sources as Citation[] | undefined,
+                comparison: event.comparison as ComparisonData | undefined,
+                steps: event.steps as AgentStep[] | undefined,
+                logId: event.logId as string | undefined,
+                timestamp: new Date().toISOString(),
+              };
+              setMessages((prev) => [...prev, assistantMessage]);
+              setActiveSteps([]);
+            }
+
+            if (event.type === "error") {
+              setError(event.message || "Research failed.");
+              setActiveSteps([]);
+            }
+          } catch {
+            // Skip malformed events
+          }
+        }
+      }
     } catch (err) {
       if (err instanceof DOMException && err.name === "AbortError") {
         // User cancelled
@@ -90,7 +159,8 @@ export function useResearch() {
     if (abortRef.current) abortRef.current.abort();
     setMessages([]);
     setError(null);
+    setActiveSteps([]);
   }, []);
 
-  return { messages, loading, error, sendQuery, sendFeedback, clearMessages };
+  return { messages, loading, error, activeSteps, sendQuery, sendFeedback, clearMessages };
 }
