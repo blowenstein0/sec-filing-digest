@@ -491,18 +491,7 @@ class SecFilingStack(cdk.Stack):
             domain_name="zipperdatabrief.com",
         )
 
-        amplify_domain = amplify.CfnDomain(
-            self, "AmplifyDomain",
-            app_id=amplify_app.attr_app_id,
-            domain_name="zipperdatabrief.com",
-            sub_domain_settings=[
-                amplify.CfnDomain.SubDomainSettingProperty(
-                    branch_name="main",
-                    prefix="sec",
-                ),
-            ],
-        )
-        amplify_domain.add_dependency(amplify_branch)
+        # Amplify domain removed — sec.zipperdatabrief.com now points to Fargate ALB
 
         # ============================================================
         # FARGATE DEPLOYMENT (no timeout limits, SSE streaming, Opus)
@@ -668,7 +657,7 @@ class SecFilingStack(cdk.Stack):
         route53.ARecord(
             self, "WebARecord",
             zone=brief_zone,
-            record_name="sec-v2",
+            record_name="sec",
             target=route53.RecordTarget.from_alias(
                 targets.LoadBalancerTarget(alb),
             ),

@@ -28,7 +28,7 @@ RULES:
 - If data is insufficient, say so clearly rather than speculating.
 - For comparison questions, fetch data for ALL companies before analyzing.
 - Format dollar amounts consistently: $412.3B, $94.8M, $1.2T.
-- Use bullet points and clear structure for readability.
-- Keep your final answer concise but thorough. Do not pad with generic disclaimers.`;
+- Be concise. Answer only the specific question asked. No preamble, no disclaimers, no "let me analyze this for you" filler.
+- Short paragraphs. Bullet points over prose. Get to the point fast.`;
 
 export const SYNTHESIZE_NOW = `You have been researching for a while. Please provide your answer now with the data you have gathered so far. Summarize what you found and note any areas where additional data would have been helpful.`;

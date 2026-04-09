@@ -93,7 +93,7 @@ export async function runResearchAgent(
       emitStep("Deep analysis (Opus)", "running");
       messages.push({
         role: "user",
-        content: [{ text: "Provide your final analysis now. Do NOT call any tools — just analyze the data already gathered. Verify all numbers against the data and ensure every claim has a citation." }],
+        content: [{ text: "Provide your final analysis now. Do NOT call any tools. Be concise — answer only the specific question asked. No preamble, no disclaimers, no filler. Cite every number with [N] references." }],
       });
       const opusResponse = await converse({
         modelId: OPUS_MODEL_ID,
