@@ -45,3 +45,67 @@ export interface Session {
   token: string;
   expiresAt: number;
 }
+
+// --- Research / EDGAR XBRL types ---
+
+export interface CompanyFacts {
+  cik: number;
+  entityName: string;
+  facts: {
+    "us-gaap"?: Record<string, XBRLFact>;
+    dei?: Record<string, XBRLFact>;
+  };
+}
+
+export interface XBRLFact {
+  label: string;
+  description: string;
+  units: Record<string, XBRLDataPoint[]>;
+}
+
+export interface XBRLDataPoint {
+  start?: string;
+  end: string;
+  val: number;
+  accn: string;
+  fy: number;
+  fp: string;
+  form: string;
+  filed: string;
+}
+
+export interface FinancialMetric {
+  concept: string;
+  label: string;
+  periods: { year: number; quarter?: string; value: number; form: string }[];
+}
+
+export interface CompanyResearch {
+  name: string;
+  cik: string;
+  ticker: string;
+  financials: FinancialMetric[];
+}
+
+export interface ChatMessage {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  sources?: Citation[];
+  comparison?: ComparisonData;
+  timestamp: string;
+}
+
+export interface Citation {
+  type: "xbrl" | "filing";
+  label: string;
+  url?: string;
+}
+
+export interface ComparisonData {
+  companies: string[];
+  metrics: {
+    label: string;
+    values: Record<string, number | string>;
+  }[];
+}

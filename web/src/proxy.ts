@@ -6,7 +6,7 @@ export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const sessionCookie = request.cookies.get(SESSION_COOKIE_NAME);
 
-  const protectedPaths = ["/dashboard"];
+  const protectedPaths = ["/dashboard", "/research"];
   if (protectedPaths.some((p) => pathname.startsWith(p)) && !sessionCookie) {
     return NextResponse.redirect(`${BASE_URL}/signup`);
   }
@@ -15,5 +15,5 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*"],
+  matcher: ["/dashboard/:path*", "/research/:path*"],
 };
