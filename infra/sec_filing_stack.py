@@ -150,6 +150,17 @@ class SecFilingStack(cdk.Stack):
             removal_policy=cdk.RemovalPolicy.DESTROY,
         )
 
+        # Filing text cache (stripped 10-K/10-Q text)
+        filing_text_table = dynamodb.Table(
+            self, "FilingTextCacheTable",
+            table_name="sec-filing-text-cache",
+            partition_key=dynamodb.Attribute(
+                name="filing_key", type=dynamodb.AttributeType.STRING
+            ),
+            billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
+            removal_policy=cdk.RemovalPolicy.RETAIN,
+        )
+
         # Research logs (agent traces + user feedback)
         research_logs_table = dynamodb.Table(
             self, "ResearchLogsTable",
@@ -539,6 +550,7 @@ class SecFilingStack(cdk.Stack):
         for table in [users_table, sessions_table, magic_links_table, watchlists_table, research_logs_table]:
             table.grant_read_write_data(fargate_task_role)
         metrics_table.grant_read_data(fargate_task_role)
+        filing_text_table.grant_read_write_data(fargate_task_role)
         fargate_task_role.add_to_policy(iam.PolicyStatement(
             actions=["ses:SendEmail", "ses:SendRawEmail"],
             resources=["*"],
@@ -592,6 +604,7 @@ class SecFilingStack(cdk.Stack):
                 "BEDROCK_MODEL_ID": "us.anthropic.claude-haiku-4-5-20251001-v1:0",
                 "BEDROCK_SONNET_MODEL_ID": "us.anthropic.claude-sonnet-4-20250514-v1:0",
                 "BEDROCK_OPUS_MODEL_ID": "us.anthropic.claude-opus-4-6-v1",
+                "FILING_TEXT_TABLE": filing_text_table.table_name,
                 "HOSTNAME": "0.0.0.0",
             },
             port_mappings=[ecs.PortMapping(container_port=3000, protocol=ecs.Protocol.TCP)],

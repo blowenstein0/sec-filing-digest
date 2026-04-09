@@ -1,4 +1,12 @@
+import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
+import { DynamoDBDocumentClient, GetCommand, PutCommand } from "@aws-sdk/lib-dynamodb";
 import type { CompanyFacts, FinancialMetric, XBRLDataPoint } from "@/types";
+
+const ddbClient = DynamoDBDocumentClient.from(
+  new DynamoDBClient({ region: process.env.APP_REGION || process.env.AWS_REGION || "us-east-1" }),
+  { marshallOptions: { removeUndefinedValues: true } }
+);
+const FILING_TEXT_TABLE = process.env.FILING_TEXT_TABLE || "sec-filing-text-cache";
 
 const EDGAR_HEADERS = {
   "User-Agent": "ZipperDataBrief/1.0 (your-email@example.com)",
@@ -84,6 +92,21 @@ export async function fetchFilingText(
   accessionNumber: string,
   primaryDocument: string
 ): Promise<string> {
+  const cacheKey = `${cik}#${accessionNumber}`;
+
+  // Check DynamoDB cache first
+  try {
+    const cached = await ddbClient.send(
+      new GetCommand({ TableName: FILING_TEXT_TABLE, Key: { filing_key: cacheKey } })
+    );
+    if (cached.Item?.text) {
+      return cached.Item.text as string;
+    }
+  } catch {
+    // Cache miss or table doesn't exist — fall through to EDGAR
+  }
+
+  // Fetch from EDGAR
   const accNoFmt = accessionNumber.replace(/-/g, "");
   const url = `https://www.sec.gov/Archives/edgar/data/${cik}/${accNoFmt}/${primaryDocument}`;
   const res = await fetch(url, { headers: EDGAR_HEADERS });
@@ -110,7 +133,28 @@ export async function fetchFilingText(
   // Normalize whitespace
   text = text.replace(/\s+/g, " ").trim();
 
-  return text.slice(0, 50_000);
+  const truncated = text.slice(0, 50_000);
+
+  // Cache in DynamoDB (fire and forget)
+  try {
+    await ddbClient.send(
+      new PutCommand({
+        TableName: FILING_TEXT_TABLE,
+        Item: {
+          filing_key: cacheKey,
+          cik,
+          accession_number: accessionNumber,
+          primary_document: primaryDocument,
+          text: truncated,
+          cached_at: new Date().toISOString(),
+        },
+      })
+    );
+  } catch {
+    // Cache write failed — not critical
+  }
+
+  return truncated;
 }
 
 // --- Section extraction from 10-K/10-Q text ---

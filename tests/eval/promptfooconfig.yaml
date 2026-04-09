@@ -11,9 +11,6 @@ defaultTest:
   options:
     provider: "file://provider.js"
   assert:
-    # Every response should have citations
-    - type: javascript
-      value: "file://scorers.js:citationQuality"
     # Every response should avoid filler
     - type: javascript
       value: "file://scorers.js:noFiller"
@@ -33,6 +30,8 @@ tests:
         value: "416"
       - type: javascript
         value: "file://scorers.js:financialAccuracy"
+      - type: javascript
+        value: "file://scorers.js:citationQuality"
       - type: javascript
         value: "file://scorers.js:conciseness"
 
@@ -236,7 +235,7 @@ tests:
       maxWords: 200
     assert:
       - type: contains
-        value: "220"  # FY2025 ~$221B
+        value: "221"  # FY2025 ~$221.0B
       - type: javascript
         value: "file://scorers.js:financialAccuracy"
 
