@@ -10,7 +10,8 @@ export async function GET() {
   const result = await client.send(
     new ScanCommand({
       TableName: METRICS_TABLE,
-      ProjectionExpression: "ticker, company_name, updated_at, metrics",
+      ProjectionExpression: "ticker, company_name, updated_at, #m",
+      ExpressionAttributeNames: { "#m": "metrics" },
     })
   );
 
