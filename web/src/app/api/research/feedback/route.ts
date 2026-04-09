@@ -1,8 +1,9 @@
 import { getAuthenticatedEmail } from "@/lib/auth";
+import { getResearchAuth } from "@/lib/research-auth";
 import { saveFeedback } from "@/lib/research-log";
 
 export async function POST(request: Request) {
-  const email = await getAuthenticatedEmail();
+  const email = await getAuthenticatedEmail() || await getResearchAuth();
   if (!email) {
     return Response.json({ error: "Not authenticated" }, { status: 401 });
   }

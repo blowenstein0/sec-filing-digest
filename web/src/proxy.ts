@@ -11,7 +11,8 @@ export function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const protectedPaths = ["/dashboard", "/research"];
+  // Research uses its own password gate, not session auth
+  const protectedPaths = ["/dashboard"];
   if (protectedPaths.some((p) => pathname.startsWith(p)) && !sessionCookie) {
     return NextResponse.redirect(`${BASE_URL}/signup`);
   }
@@ -20,5 +21,5 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/research/:path*"],
+  matcher: ["/dashboard/:path*"],
 };

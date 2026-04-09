@@ -2,7 +2,9 @@
 
 import { useState, useEffect } from "react";
 import ChatPanel from "@/components/research/ChatPanel";
-import { Info } from "lucide-react";
+import { Info, Lock } from "lucide-react";
+
+const RESEARCH_COOKIE = "research_access";
 
 interface CoverageData {
   ticker: string;
@@ -11,12 +13,33 @@ interface CoverageData {
   updatedAt: string;
 }
 
+function getCookie(name: string): string | null {
+  const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+function setCookie(name: string, value: string, days: number) {
+  const expires = new Date(Date.now() + days * 864e5).toUTCString();
+  document.cookie = `${name}=${encodeURIComponent(value)}; expires=${expires}; path=/`;
+}
+
 export default function ResearchPage() {
+  const [authed, setAuthed] = useState(false);
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState(false);
   const [coverage, setCoverage] = useState<CoverageData[]>([]);
   const [showDetails, setShowDetails] = useState(false);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
+    // Check if already authenticated via cookie
+    if (getCookie(RESEARCH_COOKIE)) {
+      setAuthed(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!authed) return;
     fetch("/api/research/coverage")
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
@@ -24,7 +47,53 @@ export default function ResearchPage() {
       })
       .catch(() => {})
       .finally(() => setLoaded(true));
-  }, []);
+  }, [authed]);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (password === "cheeky") {
+      setCookie(RESEARCH_COOKIE, password, 30);
+      setAuthed(true);
+      setError(false);
+    } else {
+      setError(true);
+    }
+  };
+
+  if (!authed) {
+    return (
+      <div className="flex items-center justify-center min-h-[calc(100vh-3.5rem)]">
+        <div className="w-full max-w-sm px-4">
+          <div className="bg-white border border-gray-200 rounded-2xl p-8 text-center">
+            <Lock className="w-8 h-8 text-gray-400 mx-auto mb-4" />
+            <h2 className="text-lg font-semibold text-gray-900 mb-1">Research Access</h2>
+            <p className="text-sm text-gray-500 mb-6">Enter the password to continue.</p>
+            <form onSubmit={handleSubmit} className="space-y-3">
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => { setPassword(e.target.value); setError(false); }}
+                placeholder="Password"
+                autoFocus
+                className={`w-full px-4 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-1 ${
+                  error
+                    ? "border-red-300 focus:border-red-400 focus:ring-red-400"
+                    : "border-gray-300 focus:border-blue-400 focus:ring-blue-400"
+                }`}
+              />
+              {error && <p className="text-xs text-red-500">Wrong password.</p>}
+              <button
+                type="submit"
+                className="w-full py-2.5 bg-blue-900 text-white rounded-xl text-sm font-medium hover:bg-blue-800 transition-colors"
+              >
+                Enter
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>
