@@ -20,6 +20,9 @@ export default function Header() {
             </Link>
             {email ? (
               <>
+                <Link href="/research" className="text-gray-600 hover:text-gray-900">
+                  Research
+                </Link>
                 <Link href="/dashboard" className="text-gray-600 hover:text-gray-900">
                   Dashboard
                 </Link>
