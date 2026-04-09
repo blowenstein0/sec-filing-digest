@@ -508,15 +508,9 @@ class SecFilingStack(cdk.Stack):
         # FARGATE DEPLOYMENT (no timeout limits, SSE streaming, Opus)
         # ============================================================
 
-        # --- ECR Repository ---
-        web_repo = ecr.Repository(
-            self, "WebEcrRepo",
-            repository_name="sec-filing-web",
-            removal_policy=cdk.RemovalPolicy.RETAIN,
-            empty_on_delete=False,
-            lifecycle_rules=[
-                ecr.LifecycleRule(max_image_count=5, description="Keep last 5 images"),
-            ],
+        # --- ECR Repository (already exists from prior deploy) ---
+        web_repo = ecr.Repository.from_repository_name(
+            self, "WebEcrRepo", "sec-filing-web",
         )
 
         # --- Fargate VPC (2 AZs, public only, no NAT) ---
