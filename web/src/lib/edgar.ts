@@ -163,9 +163,9 @@ const METRIC_CONCEPTS: Record<string, string[]> = {
 function extractAnnualValues(
   dataPoints: XBRLDataPoint[]
 ): { year: number; value: number; form: string }[] {
-  // Filter to 10-K filings with a start date (period, not instant)
+  // Filter to 10-K filings, full-year period only (fp=FY), with a start date
   const annual = dataPoints.filter(
-    (dp) => dp.form === "10-K" && dp.start
+    (dp) => dp.form === "10-K" && dp.fp === "FY" && dp.start
   );
 
   // Deduplicate by fiscal year, keep latest filed
@@ -186,9 +186,9 @@ function extractAnnualValues(
 function extractInstantValues(
   dataPoints: XBRLDataPoint[]
 ): { year: number; value: number; form: string }[] {
-  // For balance sheet items (no start date, just end/instant)
+  // For balance sheet items (no start date, just end/instant), full-year only
   const annual = dataPoints.filter(
-    (dp) => dp.form === "10-K" && !dp.start
+    (dp) => dp.form === "10-K" && dp.fp === "FY" && !dp.start
   );
 
   const byYear = new Map<number, XBRLDataPoint>();

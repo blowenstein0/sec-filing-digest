@@ -1,5 +1,7 @@
 import type { ToolConfiguration } from "@aws-sdk/client-bedrock-runtime";
 import type { Citation } from "@/types";
+import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
+import { DynamoDBDocumentClient, GetCommand } from "@aws-sdk/lib-dynamodb";
 import {
   lookupTicker,
   fetchCompanyFacts,
@@ -10,6 +12,11 @@ import {
   fetchFilingText,
   extractFilingSection,
 } from "@/lib/edgar";
+
+const ddbClient = DynamoDBDocumentClient.from(
+  new DynamoDBClient({ region: process.env.APP_REGION || process.env.AWS_REGION || "us-east-1" })
+);
+const METRICS_TABLE = process.env.METRICS_TABLE || "sec-financial-metrics";
 
 // Rate limiting — shared across all tool calls in a single agent run
 let lastEdgarCall = 0;
@@ -44,6 +51,64 @@ export interface ToolResult {
 
 type ToolExecutorFn = (input: Record<string, unknown>) => Promise<ToolResult>;
 
+// Read pre-normalized metrics from DynamoDB
+async function getCachedMetrics(ticker: string): Promise<ToolResult | null> {
+  try {
+    const result = await ddbClient.send(
+      new GetCommand({
+        TableName: METRICS_TABLE,
+        Key: { ticker: ticker.toUpperCase() },
+      })
+    );
+
+    if (!result.Item) return null;
+
+    const item = result.Item;
+    const metrics = item.metrics as Record<
+      string,
+      { concept: string; periods: { year: number; end_date: string; value: number; filed: string }[] }
+    >;
+
+    // Format for LLM
+    const lines: string[] = [];
+    const metaFinancials: { label: string; value: number; year: number }[] = [];
+
+    for (const [label, data] of Object.entries(metrics)) {
+      const values = data.periods
+        .map((p) => {
+          const val = Number(p.value);
+          metaFinancials.push({ label, value: val, year: p.year });
+          return `FY${p.year}: ${formatDollar(val, label)}`;
+        })
+        .join(", ");
+      lines.push(`${label}: ${values}`);
+    }
+
+    return {
+      text: `Financial metrics for ${item.company_name} (${ticker}) [updated ${item.updated_at}]:\n${lines.join("\n")}`,
+      sources: [
+        {
+          type: "xbrl" as const,
+          label: `XBRL (normalized) — ${item.company_name}`,
+          url: `https://data.sec.gov/api/xbrl/companyfacts/CIK${String(item.cik).padStart(10, "0")}.json`,
+        },
+      ],
+      meta: { ticker, financials: metaFinancials },
+    };
+  } catch {
+    return null; // Fall back to live EDGAR
+  }
+}
+
+function formatDollar(value: number, label: string): string {
+  if (label.includes("EPS")) return `$${value.toFixed(2)}`;
+  const abs = Math.abs(value);
+  if (abs >= 1e12) return `$${(value / 1e12).toFixed(1)}T`;
+  if (abs >= 1e9) return `$${(value / 1e9).toFixed(1)}B`;
+  if (abs >= 1e6) return `$${(value / 1e6).toFixed(0)}M`;
+  return `$${value.toLocaleString()}`;
+}
+
 const executors: Record<string, ToolExecutorFn> = {
   lookup_ticker: async (input) => {
     const ticker = input.ticker as string;
@@ -64,6 +129,14 @@ const executors: Record<string, ToolExecutorFn> = {
 
   get_financial_metrics: async (input) => {
     const ticker = (input.ticker as string).toUpperCase();
+
+    // Try DynamoDB cache first (pre-normalized data)
+    const cached = await getCachedMetrics(ticker);
+    if (cached) {
+      return cached;
+    }
+
+    // Cache miss — fall back to live EDGAR fetch
     const company = await lookupTicker(ticker);
     if (!company) {
       return { text: `Ticker "${ticker}" not found.`, sources: [] };
@@ -90,13 +163,12 @@ const executors: Record<string, ToolExecutorFn> = {
     const formatted = formatFinancialsForLLM(metrics);
     const cikPadded = company.cik.padStart(10, "0");
 
-    // Build meta for ComparisonData
     const metaFinancials = metrics.flatMap((m) =>
       m.periods.map((p) => ({ label: m.label, value: p.value, year: p.year }))
     );
 
     return {
-      text: `Financial metrics for ${company.name} (${ticker}):\n${formatted}`,
+      text: `Financial metrics for ${company.name} (${ticker}) [from live EDGAR — may be less accurate]:\n${formatted}`,
       sources: [
         {
           type: "xbrl" as const,
