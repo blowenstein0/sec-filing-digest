@@ -1,12 +1,12 @@
 import type { Message, ContentBlock as BedrockContentBlock } from "@aws-sdk/client-bedrock-runtime";
-import { converse, SONNET_MODEL_ID } from "@/lib/bedrock";
+import { converse, SONNET_MODEL_ID, OPUS_MODEL_ID } from "@/lib/bedrock";
 import { TOOL_CONFIG, executeTool, getToolLabel, resetRateLimit } from "./tools";
 import { RESEARCH_AGENT_SYSTEM, SYNTHESIZE_NOW } from "./prompts";
 import type { AgentStep, AgentResult } from "./types";
 import type { Citation, ComparisonData } from "@/types";
 
 const MAX_ROUNDS = 6;
-const TIMEOUT_MS = 25_000; // Force synthesis at 25s
+const TIMEOUT_MS = 50_000; // Force synthesis at 50s (Opus is slower but deeper)
 
 export async function runResearchAgent(
   query: string,
@@ -53,14 +53,14 @@ export async function runResearchAgent(
     // Check timeout — if close, force synthesis
     const elapsed = Date.now() - startTime;
     if (elapsed > TIMEOUT_MS) {
-      emitStep("Synthesizing answer (time limit)", "running");
-      // Force a text response by removing tools
+      emitStep("Deep analysis (Opus, time limit)", "running");
+      // Force a text response by removing tools — use Opus for quality
       messages.push({
         role: "user",
         content: [{ text: SYNTHESIZE_NOW }],
       });
       const finalResponse = await converse({
-        modelId: SONNET_MODEL_ID,
+        modelId: OPUS_MODEL_ID,
         system: RESEARCH_AGENT_SYSTEM,
         messages,
         maxTokens: 4096,
@@ -82,9 +82,25 @@ export async function runResearchAgent(
 
     markLastRunningComplete(allSteps);
 
-    // If model returned text (end_turn), we're done
+    // If model returned text (end_turn), synthesize final answer with Opus
     if (response.stopReason === "end_turn" || response.stopReason === "max_tokens") {
-      const answer = extractText(response.output);
+      // Sonnet produced an initial answer — now hand off to Opus for deeper synthesis
+      const sonnetAnswer = extractText(response.output);
+      messages.push({ role: "assistant", content: response.output });
+
+      emitStep("Deep analysis (Opus)", "running");
+      messages.push({
+        role: "user",
+        content: [{ text: "Now provide your final, thorough analysis. Verify all numbers against the data you retrieved. Ensure every claim has a citation." }],
+      });
+      const opusResponse = await converse({
+        modelId: OPUS_MODEL_ID,
+        system: RESEARCH_AGENT_SYSTEM,
+        messages,
+        maxTokens: 4096,
+      });
+      const answer = extractText(opusResponse.output) || sonnetAnswer;
+      markLastRunningComplete(allSteps);
       return buildResult(answer, allSources, allSteps, comparisonMeta);
     }
 
@@ -163,14 +179,14 @@ export async function runResearchAgent(
     }
   }
 
-  // Max rounds reached — force synthesis
-  emitStep("Synthesizing answer (max rounds)", "running");
+  // Max rounds reached — force synthesis with Opus
+  emitStep("Deep analysis (Opus, max rounds)", "running");
   messages.push({
     role: "user",
     content: [{ text: SYNTHESIZE_NOW }],
   });
   const finalResponse = await converse({
-    modelId: SONNET_MODEL_ID,
+    modelId: OPUS_MODEL_ID,
     system: RESEARCH_AGENT_SYSTEM,
     messages,
     maxTokens: 4096,

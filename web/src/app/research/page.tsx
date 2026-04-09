@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import ChatPanel from "@/components/research/ChatPanel";
-import { Info } from "lucide-react";
+import { Info, Shield } from "lucide-react";
 
 interface CoverageData {
   ticker: string;
@@ -26,6 +26,18 @@ export default function ResearchPage() {
 
   return (
     <>
+      <div className="bg-gray-900 border-b border-gray-800 px-4 sm:px-6 lg:px-8 py-2">
+        <div className="max-w-3xl mx-auto">
+          <div className="flex items-center gap-2 text-xs text-gray-300">
+            <Shield className="w-3.5 h-3.5 flex-shrink-0 text-amber-400" />
+            <p>
+              <span className="font-medium text-white">Precision mode.</span>{" "}
+              Responses are intentionally slower. We use Sonnet for data gathering
+              and Opus for final analysis to maximize accuracy on financial data.
+            </p>
+          </div>
+        </div>
+      </div>
       {coverage.length > 0 && (
         <div className="bg-blue-50 border-b border-blue-100 px-4 sm:px-6 lg:px-8 py-2">
           <div className="max-w-3xl mx-auto">
