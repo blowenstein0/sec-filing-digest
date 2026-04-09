@@ -658,6 +658,7 @@ class SecFilingStack(cdk.Stack):
         https_listener.add_targets(
             "WebTarget",
             port=3000,
+            protocol=elbv2.ApplicationProtocol.HTTP,
             targets=[fargate_service],
             health_check=elbv2.HealthCheck(
                 path="/",
