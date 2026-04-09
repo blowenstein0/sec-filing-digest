@@ -16,7 +16,7 @@ export async function POST(request: Request) {
 
   // Validate history if provided
   const chatHistory: { role: string; content: string }[] =
-    Array.isArray(history) ? history.slice(-10) : []; // Keep last 10 turns max
+    Array.isArray(history) ? history.slice(-20) : []; // Keep last 20 turns max
 
   const encoder = new TextEncoder();
 
