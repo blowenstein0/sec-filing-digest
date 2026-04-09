@@ -249,7 +249,7 @@ class SecFilingStack(cdk.Stack):
             storage_configuration=bedrock.CfnKnowledgeBase.StorageConfigurationProperty(
                 type="S3_VECTORS",
                 s3_vectors_configuration=bedrock.CfnKnowledgeBase.S3VectorsConfigurationProperty(
-                    bucket_name=f"sec-filing-rag-vectors-{cdk.Aws.ACCOUNT_ID}",
+                    # Let Bedrock auto-create the S3 Vectors bucket and index
                 ),
             ),
         )
