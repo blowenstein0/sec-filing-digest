@@ -6,6 +6,11 @@ export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const sessionCookie = request.cookies.get(SESSION_COOKIE_NAME);
 
+  // Skip auth in dev mode
+  if (process.env.NODE_ENV === "development") {
+    return NextResponse.next();
+  }
+
   const protectedPaths = ["/dashboard", "/research"];
   if (protectedPaths.some((p) => pathname.startsWith(p)) && !sessionCookie) {
     return NextResponse.redirect(`${BASE_URL}/signup`);

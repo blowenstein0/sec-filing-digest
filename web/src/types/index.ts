@@ -102,6 +102,8 @@ export interface ChatMessage {
   sources?: Citation[];
   comparison?: ComparisonData;
   steps?: AgentStep[];
+  logId?: string;
+  feedback?: "up" | "down";
   timestamp: string;
 }
 

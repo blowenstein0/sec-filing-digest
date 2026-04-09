@@ -117,6 +117,7 @@ export function useResearch() {
                 sources: event.sources as Citation[] | undefined,
                 comparison: event.comparison as ComparisonData | undefined,
                 steps: event.steps as AgentStep[] | undefined,
+                logId: event.logId as string | undefined,
                 timestamp: new Date().toISOString(),
               };
               setMessages((prev) => [...prev, assistantMessage]);
@@ -144,6 +145,22 @@ export function useResearch() {
     }
   }, []);
 
+  const sendFeedback = useCallback(async (messageId: string, feedback: "up" | "down") => {
+    setMessages((prev) =>
+      prev.map((m) => (m.id === messageId ? { ...m, feedback } : m))
+    );
+
+    // Find the logId for this message
+    const msg = messagesRef.current.find((m) => m.id === messageId);
+    if (!msg?.logId) return;
+
+    await fetch("/api/research/feedback", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ logId: msg.logId, feedback }),
+    });
+  }, []);
+
   const clearMessages = useCallback(() => {
     if (abortRef.current) abortRef.current.abort();
     setMessages([]);
@@ -151,5 +168,5 @@ export function useResearch() {
     setActiveSteps([]);
   }, []);
 
-  return { messages, loading, error, activeSteps, sendQuery, clearMessages };
+  return { messages, loading, error, activeSteps, sendQuery, sendFeedback, clearMessages };
 }

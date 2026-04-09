@@ -1,5 +1,6 @@
 import { getAuthenticatedEmail } from "@/lib/auth";
 import { runResearchAgent } from "@/lib/agent/orchestrator";
+import { saveResearchLog } from "@/lib/research-log";
 
 export async function POST(request: Request) {
   const email = await getAuthenticatedEmail();
@@ -14,11 +15,11 @@ export async function POST(request: Request) {
     return Response.json({ error: "Query required" }, { status: 400 });
   }
 
-  // Validate history if provided
   const chatHistory: { role: string; content: string }[] =
-    Array.isArray(history) ? history.slice(-20) : []; // Keep last 20 turns max
+    Array.isArray(history) ? history.slice(-20) : [];
 
   const encoder = new TextEncoder();
+  const startTime = Date.now();
 
   const stream = new ReadableStream({
     async start(controller) {
@@ -36,11 +37,26 @@ export async function POST(request: Request) {
           });
         });
 
+        const durationMs = Date.now() - startTime;
+
+        // Save log (non-blocking — don't delay the response)
+        const logId = await saveResearchLog({
+          email,
+          query,
+          answer: result.answer,
+          sources: result.sources,
+          comparison: result.comparison,
+          steps: result.steps,
+          historyLength: chatHistory.length,
+          durationMs,
+        });
+
         sendEvent("answer", {
           content: result.answer,
           sources: result.sources,
           comparison: result.comparison || null,
           steps: result.steps,
+          logId,
         });
       } catch (err) {
         const message =

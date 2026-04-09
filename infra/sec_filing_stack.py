@@ -145,6 +145,26 @@ class SecFilingStack(cdk.Stack):
             removal_policy=cdk.RemovalPolicy.DESTROY,
         )
 
+        # Research logs (agent traces + user feedback)
+        research_logs_table = dynamodb.Table(
+            self, "ResearchLogsTable",
+            table_name="sec-research-logs",
+            partition_key=dynamodb.Attribute(
+                name="id", type=dynamodb.AttributeType.STRING
+            ),
+            billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
+            removal_policy=cdk.RemovalPolicy.RETAIN,
+        )
+        research_logs_table.add_global_secondary_index(
+            index_name="by-email",
+            partition_key=dynamodb.Attribute(
+                name="email", type=dynamodb.AttributeType.STRING
+            ),
+            sort_key=dynamodb.Attribute(
+                name="created_at", type=dynamodb.AttributeType.STRING
+            ),
+        )
+
         # Grant EC2 role access to all tables
         for table in [users_table, watchlists_table, filings_table, sessions_table, magic_links_table]:
             table.grant_read_write_data(role)
@@ -370,6 +390,7 @@ class SecFilingStack(cdk.Stack):
         magic_links_table.grant_read_write_data(amplify_role)
         watchlists_table.grant_read_write_data(amplify_role)
         metrics_table.grant_read_data(amplify_role)
+        research_logs_table.grant_read_write_data(amplify_role)
         amplify_role.add_to_policy(iam.PolicyStatement(
             actions=["ses:SendEmail", "ses:SendRawEmail"],
             resources=["*"],
@@ -444,6 +465,9 @@ class SecFilingStack(cdk.Stack):
                 ),
                 amplify.CfnApp.EnvironmentVariableProperty(
                     name="METRICS_TABLE", value="sec-financial-metrics",
+                ),
+                amplify.CfnApp.EnvironmentVariableProperty(
+                    name="RESEARCH_LOGS_TABLE", value="sec-research-logs",
                 ),
             ],
         )

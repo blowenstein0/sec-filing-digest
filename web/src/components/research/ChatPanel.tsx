@@ -7,7 +7,7 @@ import SuggestedQueries from "./SuggestedQueries";
 import { Send, Loader2, RotateCcw, Check, AlertCircle } from "lucide-react";
 
 export default function ChatPanel() {
-  const { messages, loading, error, activeSteps, sendQuery, clearMessages } =
+  const { messages, loading, error, activeSteps, sendQuery, sendFeedback, clearMessages } =
     useResearch();
   const [input, setInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -48,7 +48,7 @@ export default function ChatPanel() {
           ) : (
             <>
               {messages.map((msg) => (
-                <MessageBubble key={msg.id} message={msg} />
+                <MessageBubble key={msg.id} message={msg} onFeedback={sendFeedback} />
               ))}
 
               {/* Agent progress steps */}

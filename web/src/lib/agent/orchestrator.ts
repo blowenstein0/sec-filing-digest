@@ -64,7 +64,7 @@ export async function runResearchAgent(
         system: RESEARCH_AGENT_SYSTEM,
         messages,
         maxTokens: 4096,
-        // No toolConfig — forces text response
+        toolConfig: TOOL_CONFIG, // Required when history contains tool blocks
       });
       const answer = extractText(finalResponse.output);
       markLastRunningComplete(allSteps);
@@ -97,6 +97,7 @@ export async function runResearchAgent(
         modelId: OPUS_MODEL_ID,
         system: RESEARCH_AGENT_SYSTEM,
         messages,
+        toolConfig: TOOL_CONFIG,
         maxTokens: 4096,
       });
       const answer = extractText(opusResponse.output) || sonnetAnswer;
@@ -189,6 +190,7 @@ export async function runResearchAgent(
     modelId: OPUS_MODEL_ID,
     system: RESEARCH_AGENT_SYSTEM,
     messages,
+    toolConfig: TOOL_CONFIG,
     maxTokens: 4096,
   });
   const answer = extractText(finalResponse.output);

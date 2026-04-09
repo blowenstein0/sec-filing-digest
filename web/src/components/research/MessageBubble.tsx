@@ -1,11 +1,18 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
+import ReactMarkdown from "react-markdown";
 import type { ChatMessage, Citation } from "@/types";
 import ComparisonTable from "./ComparisonTable";
-import { ExternalLink, ChevronDown, ChevronRight, Check, AlertCircle } from "lucide-react";
+import { ExternalLink, ChevronDown, ChevronRight, Check, AlertCircle, ThumbsUp, ThumbsDown } from "lucide-react";
 
-export default function MessageBubble({ message }: { message: ChatMessage }) {
+export default function MessageBubble({
+  message,
+  onFeedback,
+}: {
+  message: ChatMessage;
+  onFeedback?: (messageId: string, feedback: "up" | "down") => void;
+}) {
   const [showSteps, setShowSteps] = useState(false);
 
   if (message.role === "user") {
@@ -21,9 +28,9 @@ export default function MessageBubble({ message }: { message: ChatMessage }) {
   return (
     <div className="flex justify-start">
       <div className="bg-white border border-gray-200 px-4 py-3 rounded-2xl rounded-bl-md max-w-[90%] text-sm leading-relaxed">
-        {/* Answer text with inline citations */}
-        <div className="text-gray-800 whitespace-pre-wrap">
-          {renderWithCitations(message.content, message.sources || [])}
+        {/* Answer with markdown + inline citations */}
+        <div className="text-gray-800 prose prose-sm prose-gray max-w-none prose-p:my-1.5 prose-ul:my-1.5 prose-ol:my-1.5 prose-li:my-0.5 prose-headings:text-gray-900 prose-headings:mt-3 prose-headings:mb-1.5 prose-strong:text-gray-900 prose-a:text-blue-600">
+          <MarkdownWithCitations content={message.content} sources={message.sources || []} />
         </div>
 
         {/* Comparison table */}
@@ -39,11 +46,10 @@ export default function MessageBubble({ message }: { message: ChatMessage }) {
               {message.sources.map((source, i) => (
                 <a
                   key={i}
-                  id={`source-${i + 1}`}
                   href={source.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-xs px-2 py-1 bg-gray-50 text-gray-600 rounded-md hover:bg-gray-100 hover:text-blue-900 transition-colors"
+                  className="inline-flex items-center gap-1 text-xs px-2 py-1 bg-gray-50 text-gray-600 rounded-md hover:bg-gray-100 hover:text-blue-900 transition-colors no-underline"
                 >
                   <span className="font-mono text-blue-600 font-semibold mr-0.5">
                     [{i + 1}]
@@ -97,76 +103,111 @@ export default function MessageBubble({ message }: { message: ChatMessage }) {
             )}
           </div>
         )}
+
+        {/* Thumbs up/down feedback */}
+        {message.logId && onFeedback && (
+          <div className="mt-2 pt-2 border-t border-gray-100 flex items-center gap-1">
+            <button
+              onClick={() => onFeedback(message.id, "up")}
+              className={`p-1 rounded transition-colors ${
+                message.feedback === "up"
+                  ? "text-green-600 bg-green-50"
+                  : "text-gray-300 hover:text-green-600 hover:bg-green-50"
+              }`}
+              title="Good answer"
+            >
+              <ThumbsUp className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={() => onFeedback(message.id, "down")}
+              className={`p-1 rounded transition-colors ${
+                message.feedback === "down"
+                  ? "text-red-600 bg-red-50"
+                  : "text-gray-300 hover:text-red-600 hover:bg-red-50"
+              }`}
+              title="Bad answer"
+            >
+              <ThumbsDown className="w-3.5 h-3.5" />
+            </button>
+            {message.feedback && (
+              <span className="text-xs text-gray-400 ml-1">
+                {message.feedback === "up" ? "Thanks!" : "Noted — we'll improve"}
+              </span>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
-// Parse [1], [2], etc. in text and render as clickable citation links
-function renderWithCitations(text: string, sources: Citation[]): ReactNode[] {
-  // Strip markdown bold
-  const cleaned = text.replace(/\*\*(.*?)\*\*/g, "$1");
+// Renders markdown with citation [1] [2] replaced by clickable pills
+function MarkdownWithCitations({ content, sources }: { content: string; sources: Citation[] }) {
+  // Replace [N] citations with placeholder tokens that survive markdown parsing
+  const CITE_TOKEN = "%%CITE_";
+  const processed = content.replace(/\[(\d+)\]/g, `${CITE_TOKEN}$1%%`);
 
-  // Split on citation patterns like [1], [2], [1, 2], [1][2]
-  const parts = cleaned.split(/(\[\d+(?:,\s*\d+)*\]|\[\d+\]\[\d+\])/g);
+  return (
+    <ReactMarkdown
+      components={{
+        // Override text rendering to inject citation links
+        p: ({ children }) => <p>{injectCitations(children, sources)}</p>,
+        li: ({ children }) => <li>{injectCitations(children, sources)}</li>,
+        td: ({ children }) => <td>{injectCitations(children, sources)}</td>,
+      }}
+    >
+      {processed}
+    </ReactMarkdown>
+  );
+}
+
+function injectCitations(children: ReactNode, sources: Citation[]): ReactNode {
+  if (!children) return children;
+
+  const CITE_TOKEN = "%%CITE_";
+
+  // Process each child
+  if (Array.isArray(children)) {
+    return children.map((child, i) => {
+      if (typeof child === "string") {
+        return renderCitationsInText(child, sources, i);
+      }
+      return child;
+    });
+  }
+
+  if (typeof children === "string") {
+    return renderCitationsInText(children, sources, 0);
+  }
+
+  return children;
+}
+
+function renderCitationsInText(text: string, sources: Citation[], keyPrefix: number): ReactNode {
+  const parts = text.split(/(%%CITE_\d+%%)/g);
+  if (parts.length === 1) return text;
 
   return parts.map((part, i) => {
-    // Check if this part is a citation reference
-    const citationMatch = part.match(/^\[(\d+(?:,\s*\d+)*)\]$/);
-    if (citationMatch) {
-      const nums = citationMatch[1].split(/,\s*/).map(Number);
+    const match = part.match(/^%%CITE_(\d+)%%$/);
+    if (match) {
+      const num = Number(match[1]);
+      const source = sources[num - 1];
+      if (!source) {
+        return <span key={`${keyPrefix}-${i}`} className="text-gray-400 text-xs">[{num}]</span>;
+      }
       return (
-        <span key={i}>
-          {nums.map((num, j) => {
-            const source = sources[num - 1];
-            if (!source) {
-              return <span key={j} className="text-gray-400 text-xs">[{num}]</span>;
-            }
-            return (
-              <a
-                key={j}
-                href={source.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                title={source.label}
-                className="inline-flex items-center justify-center text-[10px] font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded px-1 py-0 mx-0.5 align-super cursor-pointer transition-colors no-underline leading-tight"
-              >
-                {num}
-              </a>
-            );
-          })}
-        </span>
+        <a
+          key={`${keyPrefix}-${i}`}
+          href={source.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          title={source.label}
+          className="inline-flex items-center justify-center text-[10px] font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded px-1 py-0 mx-0.5 align-super cursor-pointer transition-colors no-underline leading-tight"
+        >
+          {num}
+        </a>
       );
     }
-
-    // Check for adjacent citations like [1][2]
-    const adjacentMatch = part.match(/^\[(\d+)\]\[(\d+)\]$/);
-    if (adjacentMatch) {
-      const nums = [Number(adjacentMatch[1]), Number(adjacentMatch[2])];
-      return (
-        <span key={i}>
-          {nums.map((num, j) => {
-            const source = sources[num - 1];
-            if (!source) {
-              return <span key={j} className="text-gray-400 text-xs">[{num}]</span>;
-            }
-            return (
-              <a
-                key={j}
-                href={source.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                title={source.label}
-                className="inline-flex items-center justify-center text-[10px] font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded px-1 py-0 mx-0.5 align-super cursor-pointer transition-colors no-underline leading-tight"
-              >
-                {num}
-              </a>
-            );
-          })}
-        </span>
-      );
-    }
-
-    return <span key={i}>{part}</span>;
+    return <span key={`${keyPrefix}-${i}`}>{part}</span>;
   });
 }

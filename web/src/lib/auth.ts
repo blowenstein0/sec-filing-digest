@@ -14,6 +14,9 @@ export async function getSessionToken(): Promise<string | null> {
 }
 
 export async function getAuthenticatedEmail(): Promise<string | null> {
+  // Skip auth in dev mode
+  if (process.env.NODE_ENV === "development") return "dev@localhost";
+
   const token = await getSessionToken();
   if (!token) return null;
 
