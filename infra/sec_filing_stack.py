@@ -431,6 +431,9 @@ class SecFilingStack(cdk.Stack):
                 amplify.CfnApp.EnvironmentVariableProperty(
                     name="BEDROCK_MODEL_ID", value="us.anthropic.claude-haiku-4-5-20251001-v1:0",
                 ),
+                amplify.CfnApp.EnvironmentVariableProperty(
+                    name="BEDROCK_SONNET_MODEL_ID", value="us.anthropic.claude-sonnet-4-20250514-v1:0",
+                ),
             ],
         )
 
