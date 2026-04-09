@@ -4,10 +4,10 @@ import { useState, useRef, useEffect } from "react";
 import { useResearch } from "@/hooks/useResearch";
 import MessageBubble from "./MessageBubble";
 import SuggestedQueries from "./SuggestedQueries";
-import { Send, Loader2, RotateCcw, Check, AlertCircle } from "lucide-react";
+import { Send, Loader2, RotateCcw } from "lucide-react";
 
 export default function ChatPanel() {
-  const { messages, loading, error, activeSteps, sendQuery, sendFeedback, clearMessages } =
+  const { messages, loading, error, sendQuery, sendFeedback, clearMessages } =
     useResearch();
   const [input, setInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -15,7 +15,7 @@ export default function ChatPanel() {
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, loading, activeSteps]);
+  }, [messages, loading]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,50 +51,12 @@ export default function ChatPanel() {
                 <MessageBubble key={msg.id} message={msg} onFeedback={sendFeedback} />
               ))}
 
-              {/* Agent progress steps */}
-              {loading && activeSteps.length > 0 && (
-                <div className="flex justify-start">
-                  <div className="bg-white border border-gray-200 px-4 py-3 rounded-2xl rounded-bl-md min-w-[240px]">
-                    <div className="space-y-1.5">
-                      {activeSteps.map((step) => (
-                        <div
-                          key={step.id}
-                          className="flex items-center gap-2 text-sm"
-                        >
-                          {step.status === "running" && (
-                            <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-500 flex-shrink-0" />
-                          )}
-                          {step.status === "complete" && (
-                            <Check className="w-3.5 h-3.5 text-green-500 flex-shrink-0" />
-                          )}
-                          {step.status === "error" && (
-                            <AlertCircle className="w-3.5 h-3.5 text-red-400 flex-shrink-0" />
-                          )}
-                          <span
-                            className={
-                              step.status === "running"
-                                ? "text-gray-700"
-                                : step.status === "error"
-                                  ? "text-red-500"
-                                  : "text-gray-400"
-                            }
-                          >
-                            {step.label}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Fallback loading if no steps yet */}
-              {loading && activeSteps.length === 0 && (
+              {loading && (
                 <div className="flex justify-start">
                   <div className="bg-white border border-gray-200 px-4 py-3 rounded-2xl rounded-bl-md">
                     <div className="flex items-center gap-2 text-sm text-gray-400">
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      Starting research...
+                      Researching... this may take 15-30 seconds.
                     </div>
                   </div>
                 </div>
