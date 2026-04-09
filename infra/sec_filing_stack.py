@@ -362,10 +362,14 @@ class SecFilingStack(cdk.Stack):
                 ),
             ],
         )
+        metrics_table = dynamodb.Table.from_table_name(
+            self, "MetricsTable", "sec-financial-metrics",
+        )
         users_table.grant_read_write_data(amplify_role)
         sessions_table.grant_read_write_data(amplify_role)
         magic_links_table.grant_read_write_data(amplify_role)
         watchlists_table.grant_read_write_data(amplify_role)
+        metrics_table.grant_read_data(amplify_role)
         amplify_role.add_to_policy(iam.PolicyStatement(
             actions=["ses:SendEmail", "ses:SendRawEmail"],
             resources=["*"],
@@ -433,6 +437,9 @@ class SecFilingStack(cdk.Stack):
                 ),
                 amplify.CfnApp.EnvironmentVariableProperty(
                     name="BEDROCK_SONNET_MODEL_ID", value="us.anthropic.claude-sonnet-4-20250514-v1:0",
+                ),
+                amplify.CfnApp.EnvironmentVariableProperty(
+                    name="METRICS_TABLE", value="sec-financial-metrics",
                 ),
             ],
         )
