@@ -5,8 +5,8 @@ import { RESEARCH_AGENT_SYSTEM, SYNTHESIZE_NOW } from "./prompts";
 import type { AgentStep, AgentResult } from "./types";
 import type { Citation, ComparisonData } from "@/types";
 
-const MAX_ROUNDS = 6;
-const TIMEOUT_MS = 50_000; // Force synthesis at 50s (Opus is slower but deeper)
+const MAX_ROUNDS = 4;
+const TIMEOUT_MS = 25_000; // Force synthesis at 25s to stay within Amplify's timeout
 
 export async function runResearchAgent(
   query: string,
