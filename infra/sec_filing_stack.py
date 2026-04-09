@@ -2,6 +2,7 @@ import json
 import aws_cdk as cdk
 from aws_cdk import (
     aws_amplify as amplify,
+    aws_bedrock as bedrock,
     aws_certificatemanager as acm,
     aws_dynamodb as dynamodb,
     aws_ec2 as ec2,
@@ -9,9 +10,12 @@ from aws_cdk import (
     aws_ecs as ecs,
     aws_elasticloadbalancingv2 as elbv2,
     aws_iam as iam,
+    aws_lambda as _lambda,
+    aws_lambda_event_sources as lambda_events,
     aws_logs as logs,
     aws_route53 as route53,
     aws_route53_targets as targets,
+    aws_s3 as s3,
     aws_s3_assets as s3_assets,
     aws_ses as ses,
     aws_cloudwatch as cloudwatch,
@@ -181,9 +185,144 @@ class SecFilingStack(cdk.Stack):
             ),
         )
 
-        # Grant EC2 role access to all tables
+        # ============================================================
+        # RAG: Bedrock Knowledge Base + S3 Vectors
+        # ============================================================
+
+        # S3 bucket for filing text documents
+        filing_bucket = s3.Bucket(
+            self, "FilingTextBucket",
+            bucket_name=f"sec-filing-rag-{cdk.Aws.ACCOUNT_ID}",
+            removal_policy=cdk.RemovalPolicy.RETAIN,
+            lifecycle_rules=[
+                s3.LifecycleRule(
+                    transitions=[
+                        s3.Transition(
+                            storage_class=s3.StorageClass.INFREQUENT_ACCESS,
+                            transition_after=cdk.Duration.days(90),
+                        ),
+                    ],
+                ),
+            ],
+        )
+
+        # KB service role
+        kb_role = iam.Role(
+            self, "KBRole",
+            assumed_by=iam.ServicePrincipal("bedrock.amazonaws.com"),
+        )
+        kb_role.add_to_policy(iam.PolicyStatement(
+            actions=["bedrock:InvokeModel"],
+            resources=[f"arn:aws:bedrock:us-east-1::foundation-model/amazon.titan-embed-text-v2:0"],
+        ))
+        kb_role.add_to_policy(iam.PolicyStatement(
+            actions=["s3:GetObject", "s3:ListBucket"],
+            resources=[filing_bucket.bucket_arn, f"{filing_bucket.bucket_arn}/*"],
+        ))
+        kb_role.add_to_policy(iam.PolicyStatement(
+            actions=[
+                "s3vectors:CreateVectorBucket", "s3vectors:PutVectors",
+                "s3vectors:GetVectors", "s3vectors:QueryVectors",
+                "s3vectors:DeleteVectors", "s3vectors:ListVectorBuckets",
+                "s3vectors:CreateIndex", "s3vectors:ListIndexes",
+                "s3vectors:DescribeIndex", "s3vectors:DescribeVectorBucket",
+            ],
+            resources=["*"],
+        ))
+
+        # Knowledge Base
+        kb = bedrock.CfnKnowledgeBase(
+            self, "FilingKB",
+            name="sec-filing-kb",
+            role_arn=kb_role.role_arn,
+            knowledge_base_configuration=bedrock.CfnKnowledgeBase.KnowledgeBaseConfigurationProperty(
+                type="VECTOR",
+                vector_knowledge_base_configuration=bedrock.CfnKnowledgeBase.VectorKnowledgeBaseConfigurationProperty(
+                    embedding_model_arn=f"arn:aws:bedrock:us-east-1::foundation-model/amazon.titan-embed-text-v2:0",
+                    embedding_model_configuration=bedrock.CfnKnowledgeBase.EmbeddingModelConfigurationProperty(
+                        bedrock_embedding_model_configuration=bedrock.CfnKnowledgeBase.BedrockEmbeddingModelConfigurationProperty(
+                            dimensions=1024,
+                        ),
+                    ),
+                ),
+            ),
+            storage_configuration=bedrock.CfnKnowledgeBase.StorageConfigurationProperty(
+                type="S3_VECTORS",
+                s3_vectors_configuration=bedrock.CfnKnowledgeBase.S3VectorsConfigurationProperty(
+                    bucket_name=f"sec-filing-rag-vectors-{cdk.Aws.ACCOUNT_ID}",
+                ),
+            ),
+        )
+
+        # Data Source (S3 bucket with filing text)
+        kb_data_source = bedrock.CfnDataSource(
+            self, "FilingDataSource",
+            knowledge_base_id=kb.attr_knowledge_base_id,
+            name="sec-filings",
+            data_source_configuration=bedrock.CfnDataSource.DataSourceConfigurationProperty(
+                type="S3",
+                s3_configuration=bedrock.CfnDataSource.S3DataSourceConfigurationProperty(
+                    bucket_arn=filing_bucket.bucket_arn,
+                    inclusion_prefixes=["filings/"],
+                ),
+            ),
+            vector_ingestion_configuration=bedrock.CfnDataSource.VectorIngestionConfigurationProperty(
+                chunking_configuration=bedrock.CfnDataSource.ChunkingConfigurationProperty(
+                    chunking_strategy="FIXED_SIZE",
+                    fixed_size_chunking_configuration=bedrock.CfnDataSource.FixedSizeChunkingConfigurationProperty(
+                        max_tokens=1500,
+                        overlap_percentage=15,
+                    ),
+                ),
+            ),
+        )
+
+        # Lambda: S3 event → StartIngestionJob (async indexing)
+        ingest_lambda = _lambda.Function(
+            self, "IngestTriggerLambda",
+            function_name="sec-filing-ingest-trigger",
+            runtime=_lambda.Runtime.PYTHON_3_12,
+            handler="index.handler",
+            timeout=cdk.Duration.seconds(30),
+            code=_lambda.Code.from_inline(json.dumps({}) and """
+import boto3
+import os
+
+bedrock_agent = boto3.client("bedrock-agent", region_name="us-east-1")
+KB_ID = os.environ["KNOWLEDGE_BASE_ID"]
+DS_ID = os.environ["DATA_SOURCE_ID"]
+
+def handler(event, context):
+    print(f"S3 event: {event['Records'][0]['s3']['object']['key']}")
+    bedrock_agent.start_ingestion_job(
+        knowledgeBaseId=KB_ID,
+        dataSourceId=DS_ID,
+    )
+    return {"status": "ingestion started"}
+"""),
+            environment={
+                "KNOWLEDGE_BASE_ID": kb.attr_knowledge_base_id,
+                "DATA_SOURCE_ID": kb_data_source.attr_data_source_id,
+            },
+        )
+        ingest_lambda.add_to_role_policy(iam.PolicyStatement(
+            actions=["bedrock:StartIngestionJob"],
+            resources=[kb.attr_knowledge_base_arn, f"{kb.attr_knowledge_base_arn}/*"],
+        ))
+
+        # S3 event notification → Lambda
+        ingest_lambda.add_event_source(
+            lambda_events.S3EventSource(
+                filing_bucket,
+                events=[s3.EventType.OBJECT_CREATED],
+                filters=[s3.NotificationKeyFilter(prefix="filings/")],
+            )
+        )
+
+        # Grant EC2 role access to all tables + filing bucket
         for table in [users_table, watchlists_table, filings_table, sessions_table, magic_links_table]:
             table.grant_read_write_data(role)
+        filing_bucket.grant_read_write(role)
 
         # --- CloudWatch Logs ---
         app_log_group = logs.LogGroup(
@@ -551,6 +690,11 @@ class SecFilingStack(cdk.Stack):
             table.grant_read_write_data(fargate_task_role)
         metrics_table.grant_read_data(fargate_task_role)
         filing_text_table.grant_read_write_data(fargate_task_role)
+        filing_bucket.grant_read_write(fargate_task_role)
+        fargate_task_role.add_to_policy(iam.PolicyStatement(
+            actions=["bedrock:Retrieve"],
+            resources=[kb.attr_knowledge_base_arn],
+        ))
         fargate_task_role.add_to_policy(iam.PolicyStatement(
             actions=["ses:SendEmail", "ses:SendRawEmail"],
             resources=["*"],
@@ -605,6 +749,8 @@ class SecFilingStack(cdk.Stack):
                 "BEDROCK_SONNET_MODEL_ID": "us.anthropic.claude-sonnet-4-20250514-v1:0",
                 "BEDROCK_OPUS_MODEL_ID": "us.anthropic.claude-opus-4-6-v1",
                 "FILING_TEXT_TABLE": filing_text_table.table_name,
+                "KNOWLEDGE_BASE_ID": kb.attr_knowledge_base_id,
+                "FILING_TEXT_BUCKET": filing_bucket.bucket_name,
                 "HOSTNAME": "0.0.0.0",
             },
             port_mappings=[ecs.PortMapping(container_port=3000, protocol=ecs.Protocol.TCP)],

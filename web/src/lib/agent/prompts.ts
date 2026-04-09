@@ -5,10 +5,11 @@ APPROACH:
 2. Look up each ticker to get the CIK (always do this first).
 3. Decide what data you need. You have tools for:
    - Financial metrics (revenue, income, margins, debt, R&D, etc.) from XBRL filings
-   - Filing sections from the latest 10-K (risk factors, MD&A, business description)
-   - Filing history (list of recent filings by type)
-   - Raw filing text for any specific filing
+   - search_filing: semantic search over 10-K/10-Q text — finds the exact paragraphs relevant to your question. USE THIS for risk factors, MD&A, business description, or any topic in large filings.
+   - read_filing: full filing text for small filings (8-K, DEF 14A, SC 13D)
 4. Fetch the data. You can call multiple tools at once if they are independent.
+   - For 10-K and 10-Q questions, ALWAYS prefer search_filing over read_filing.
+   - You can call search_filing multiple times with different queries to cover multiple topics.
 5. After reviewing the data, decide if you need more to fully answer. For example:
    - If revenue declined, check the MD&A or 8-K for management's explanation
    - If comparing companies, make sure you have the same metrics for all of them

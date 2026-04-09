@@ -11,6 +11,7 @@ import {
   getLatest10K,
   fetchFilingText,
 } from "@/lib/edgar";
+import { searchFilingChunks, uploadForIndexing } from "@/lib/rag";
 
 const ddbClient = DynamoDBDocumentClient.from(
   new DynamoDBClient({ region: process.env.APP_REGION || process.env.AWS_REGION || "us-east-1" })
@@ -257,6 +258,69 @@ const executors: Record<string, ToolExecutorFn> = {
       sources: [source],
     };
   },
+
+  search_filing: async (input) => {
+    const ticker = (input.ticker as string).toUpperCase();
+    const query = input.query as string;
+    const formType = (input.form_type as string) || "10-K";
+
+    // Try RAG first
+    const ragResult = await searchFilingChunks(ticker, query, formType);
+    if (ragResult && ragResult.chunkCount > 0) {
+      return {
+        text: `${ticker} ${formType} — Search results for "${query}" (${ragResult.chunkCount} passages):\n\n${ragResult.fullText}`,
+        sources: ragResult.sources,
+      };
+    }
+
+    // KB miss — fall back to read_filing behavior (fetch from EDGAR)
+    const company = await lookupTicker(ticker);
+    if (!company) {
+      return { text: `Ticker "${ticker}" not found.`, sources: [] };
+    }
+
+    await rateLimit();
+    const subs = await fetchCompanySubmissions(company.cik);
+    if (!subs) {
+      return { text: `Could not fetch filings for ${ticker}.`, sources: [] };
+    }
+
+    // Find the filing
+    const recent = subs.filings.recent;
+    let filingIdx = -1;
+    for (let i = 0; i < recent.form.length; i++) {
+      if (recent.form[i] === formType) { filingIdx = i; break; }
+    }
+    if (filingIdx === -1) {
+      return { text: `No ${formType} found for ${ticker}.`, sources: [] };
+    }
+
+    const accessionNumber = recent.accessionNumber[filingIdx];
+    const primaryDocument = recent.primaryDocument[filingIdx];
+    const filingDate = recent.filingDate[filingIdx];
+
+    await rateLimit();
+    const text = await fetchFilingText(company.cik, accessionNumber, primaryDocument);
+
+    const accNoFmt = accessionNumber.replace(/-/g, "");
+    const filingUrl = `https://www.sec.gov/Archives/edgar/data/${company.cik}/${accNoFmt}/${primaryDocument}`;
+
+    // Fire-and-forget: upload full text to S3 for async indexing
+    // Next time this ticker is queried, RAG will have the chunks
+    uploadForIndexing(ticker, accessionNumber, formType, filingDate, company.name, company.cik, text);
+
+    if (!text || text.length < 100) {
+      return {
+        text: `Could not retrieve ${formType} text for ${ticker}.`,
+        sources: [{ type: "filing" as const, label: `${formType} filed ${filingDate}`, url: filingUrl }],
+      };
+    }
+
+    return {
+      text: `${company.name} ${formType} (filed ${filingDate}). Focus on: ${query}\n\n[Note: This is truncated raw text. Semantic search will be available for this filing on your next query.]\n\n${text}`,
+      sources: [{ type: "filing" as const, label: `${formType} filed ${filingDate}`, url: filingUrl }],
+    };
+  },
 };
 
 export async function executeTool(
@@ -287,6 +351,8 @@ export function getToolLabel(name: string, input: Record<string, unknown>): stri
       const yr = input.year ? ` (${input.year})` : "";
       return `Reading ${ft}${yr} for ${ticker || "company"}`;
     }
+    case "search_filing":
+      return `Searching ${(input.form_type as string) || "10-K"} for ${ticker || "company"}`;
     default:
       return `Running ${name}`;
   }
@@ -367,6 +433,33 @@ export const TOOL_CONFIG: ToolConfiguration = {
               },
             },
             required: ["ticker"],
+          },
+        },
+      },
+    },
+    {
+      toolSpec: {
+        name: "search_filing",
+        description:
+          "Semantic search over SEC filing text. Returns the most relevant passages from 10-K or 10-Q filings for a given company and topic. Use this instead of read_filing when you need specific information from large filings (10-K, 10-Q) — it finds the exact paragraphs relevant to your question. For small filings (8-K, DEF 14A), use read_filing instead.",
+        inputSchema: {
+          json: {
+            type: "object",
+            properties: {
+              ticker: {
+                type: "string",
+                description: "Stock ticker symbol",
+              },
+              query: {
+                type: "string",
+                description: "What to search for, e.g. 'risk factors related to supply chain', 'revenue breakdown by segment', 'executive compensation'",
+              },
+              form_type: {
+                type: "string",
+                description: "Filing type to search: '10-K' (default) or '10-Q'",
+              },
+            },
+            required: ["ticker", "query"],
           },
         },
       },
