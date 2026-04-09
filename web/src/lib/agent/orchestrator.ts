@@ -20,6 +20,7 @@ export async function runResearchAgent(
   const allSteps: AgentStep[] = [];
   const comparisonMeta: Map<string, { label: string; value: number; year: number }[]> = new Map();
   let stepCounter = 0;
+  let sourceCounter = 0;
 
   function emitStep(label: string, status: AgentStep["status"], detail?: string): AgentStep {
     const step: AgentStep = {
@@ -112,8 +113,17 @@ export async function runResearchAgent(
         try {
           const result = await executeTool(name, toolInput);
 
-          // Collect sources
-          allSources.push(...result.sources);
+          // Assign source numbers and collect
+          let resultText = result.text;
+          if (result.sources.length > 0) {
+            const sourceNums: string[] = [];
+            for (const source of result.sources) {
+              sourceCounter++;
+              allSources.push(source);
+              sourceNums.push(`[${sourceCounter}]`);
+            }
+            resultText += `\n\n(Cite this data as source ${sourceNums.join(", ")} in your answer.)`;
+          }
 
           // Collect comparison meta
           if (result.meta?.ticker && result.meta?.financials) {
@@ -125,7 +135,7 @@ export async function runResearchAgent(
           toolResults.push({
             toolResult: {
               toolUseId,
-              content: [{ text: result.text }],
+              content: [{ text: resultText }],
               status: "success",
             },
           });

@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import type { ChatMessage } from "@/types";
+import { useState, type ReactNode } from "react";
+import type { ChatMessage, Citation } from "@/types";
 import ComparisonTable from "./ComparisonTable";
 import { ExternalLink, ChevronDown, ChevronRight, Check, AlertCircle } from "lucide-react";
 
@@ -21,9 +21,9 @@ export default function MessageBubble({ message }: { message: ChatMessage }) {
   return (
     <div className="flex justify-start">
       <div className="bg-white border border-gray-200 px-4 py-3 rounded-2xl rounded-bl-md max-w-[90%] text-sm leading-relaxed">
-        {/* Answer text */}
+        {/* Answer text with inline citations */}
         <div className="text-gray-800 whitespace-pre-wrap">
-          {formatAnswer(message.content)}
+          {renderWithCitations(message.content, message.sources || [])}
         </div>
 
         {/* Comparison table */}
@@ -39,11 +39,15 @@ export default function MessageBubble({ message }: { message: ChatMessage }) {
               {message.sources.map((source, i) => (
                 <a
                   key={i}
+                  id={`source-${i + 1}`}
                   href={source.url}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1 text-xs px-2 py-1 bg-gray-50 text-gray-600 rounded-md hover:bg-gray-100 hover:text-blue-900 transition-colors"
                 >
+                  <span className="font-mono text-blue-600 font-semibold mr-0.5">
+                    [{i + 1}]
+                  </span>
                   <span
                     className={`w-1.5 h-1.5 rounded-full ${source.type === "xbrl" ? "bg-green-400" : "bg-blue-400"}`}
                   />
@@ -98,6 +102,71 @@ export default function MessageBubble({ message }: { message: ChatMessage }) {
   );
 }
 
-function formatAnswer(text: string): string {
-  return text.replace(/\*\*(.*?)\*\*/g, "$1");
+// Parse [1], [2], etc. in text and render as clickable citation links
+function renderWithCitations(text: string, sources: Citation[]): ReactNode[] {
+  // Strip markdown bold
+  const cleaned = text.replace(/\*\*(.*?)\*\*/g, "$1");
+
+  // Split on citation patterns like [1], [2], [1, 2], [1][2]
+  const parts = cleaned.split(/(\[\d+(?:,\s*\d+)*\]|\[\d+\]\[\d+\])/g);
+
+  return parts.map((part, i) => {
+    // Check if this part is a citation reference
+    const citationMatch = part.match(/^\[(\d+(?:,\s*\d+)*)\]$/);
+    if (citationMatch) {
+      const nums = citationMatch[1].split(/,\s*/).map(Number);
+      return (
+        <span key={i}>
+          {nums.map((num, j) => {
+            const source = sources[num - 1];
+            if (!source) {
+              return <span key={j} className="text-gray-400 text-xs">[{num}]</span>;
+            }
+            return (
+              <a
+                key={j}
+                href={source.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                title={source.label}
+                className="inline-flex items-center justify-center text-[10px] font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded px-1 py-0 mx-0.5 align-super cursor-pointer transition-colors no-underline leading-tight"
+              >
+                {num}
+              </a>
+            );
+          })}
+        </span>
+      );
+    }
+
+    // Check for adjacent citations like [1][2]
+    const adjacentMatch = part.match(/^\[(\d+)\]\[(\d+)\]$/);
+    if (adjacentMatch) {
+      const nums = [Number(adjacentMatch[1]), Number(adjacentMatch[2])];
+      return (
+        <span key={i}>
+          {nums.map((num, j) => {
+            const source = sources[num - 1];
+            if (!source) {
+              return <span key={j} className="text-gray-400 text-xs">[{num}]</span>;
+            }
+            return (
+              <a
+                key={j}
+                href={source.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                title={source.label}
+                className="inline-flex items-center justify-center text-[10px] font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded px-1 py-0 mx-0.5 align-super cursor-pointer transition-colors no-underline leading-tight"
+              >
+                {num}
+              </a>
+            );
+          })}
+        </span>
+      );
+    }
+
+    return <span key={i}>{part}</span>;
+  });
 }
