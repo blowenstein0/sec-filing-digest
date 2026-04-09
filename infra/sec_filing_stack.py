@@ -370,6 +370,10 @@ class SecFilingStack(cdk.Stack):
             actions=["ses:SendEmail", "ses:SendRawEmail"],
             resources=["*"],
         ))
+        amplify_role.add_to_policy(iam.PolicyStatement(
+            actions=["bedrock:InvokeModel"],
+            resources=["*"],
+        ))
 
         amplify_app = amplify.CfnApp(
             self, "SecFilingWeb",
@@ -423,6 +427,9 @@ class SecFilingStack(cdk.Stack):
                 ),
                 amplify.CfnApp.EnvironmentVariableProperty(
                     name="NEXT_PUBLIC_BASE_URL", value="https://sec.zipperdatabrief.com",
+                ),
+                amplify.CfnApp.EnvironmentVariableProperty(
+                    name="BEDROCK_MODEL_ID", value="us.anthropic.claude-haiku-4-5-20251001-v1:0",
                 ),
             ],
         )
