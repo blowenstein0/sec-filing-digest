@@ -609,6 +609,7 @@ class SecFilingStack(cdk.Stack):
                 "BEDROCK_MODEL_ID": "us.anthropic.claude-haiku-4-5-20251001-v1:0",
                 "BEDROCK_SONNET_MODEL_ID": "us.anthropic.claude-sonnet-4-20250514-v1:0",
                 "BEDROCK_OPUS_MODEL_ID": "us.anthropic.claude-opus-4-6-v1",
+                "HOSTNAME": "0.0.0.0",
             },
             port_mappings=[ecs.PortMapping(container_port=3000, protocol=ecs.Protocol.TCP)],
             health_check=ecs.HealthCheck(
