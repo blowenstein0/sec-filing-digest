@@ -1,0 +1,282 @@
+description: "SEC Research Agent Evaluation Suite"
+
+providers:
+  - id: "file://provider.js"
+    label: "SEC Research Agent"
+
+defaultTest:
+  options:
+    provider: "file://provider.js"
+  assert:
+    # Every response should have citations
+    - type: javascript
+      value: "file://scorers.js:citationQuality"
+    # Every response should avoid filler
+    - type: javascript
+      value: "file://scorers.js:noFiller"
+
+tests:
+  # ============================================================
+  # FINANCIAL ACCURACY — verified against DynamoDB ground truth
+  # ============================================================
+
+  - description: "AAPL FY2025 revenue (exact number check)"
+    vars:
+      query: "What was Apple's revenue in FY2025?"
+      ticker: "AAPL"
+      maxWords: 200
+    assert:
+      - type: contains
+        value: "416"
+      - type: javascript
+        value: "file://scorers.js:financialAccuracy"
+      - type: javascript
+        value: "file://scorers.js:conciseness"
+
+  - description: "AAPL net income trend"
+    vars:
+      query: "What is AAPL's net income over the last 5 years?"
+      ticker: "AAPL"
+      maxWords: 300
+    assert:
+      - type: contains
+        value: "112"  # FY2025 net income ~$112B
+      - type: javascript
+        value: "file://scorers.js:financialAccuracy"
+
+  - description: "AMZN revenue (exact number check)"
+    vars:
+      query: "What is Amazon's total revenue?"
+      ticker: "AMZN"
+      maxWords: 200
+    assert:
+      - type: contains
+        value: "716"  # FY2025 ~$716.9B
+      - type: javascript
+        value: "file://scorers.js:financialAccuracy"
+
+  - description: "BLK revenue and AUM context"
+    vars:
+      query: "What is BlackRock's revenue?"
+      ticker: "BLK"
+      maxWords: 200
+    assert:
+      - type: contains
+        value: "24"  # FY2025 ~$24.2B
+      - type: javascript
+        value: "file://scorers.js:financialAccuracy"
+
+  - description: "AAPL R&D spending"
+    vars:
+      query: "How much does Apple spend on R&D?"
+      ticker: "AAPL"
+      maxWords: 250
+    assert:
+      - type: contains
+        value: "34"  # FY2025 ~$34.6B
+      - type: javascript
+        value: "file://scorers.js:financialAccuracy"
+
+  - description: "AMZN operating income recovery"
+    vars:
+      query: "Show me Amazon's operating income trend"
+      ticker: "AMZN"
+      maxWords: 300
+    assert:
+      - type: contains
+        value: "79"  # FY2025 ~$80.0B
+      - type: javascript
+        value: "file://scorers.js:financialAccuracy"
+
+  - description: "AAPL balance sheet — debt and cash"
+    vars:
+      query: "What is Apple's long-term debt and cash position?"
+      ticker: "AAPL"
+      maxWords: 250
+    assert:
+      - type: contains
+        value: "90"  # LT debt ~$90.7B
+      - type: contains
+        value: "35"  # Cash ~$35.9B
+      - type: javascript
+        value: "file://scorers.js:financialAccuracy"
+
+  - description: "AAPL gross margin"
+    vars:
+      query: "What is Apple's gross profit and gross margin?"
+      ticker: "AAPL"
+      maxWords: 250
+    assert:
+      - type: contains
+        value: "195"  # Gross profit ~$195.2B
+      - type: javascript
+        value: "file://scorers.js:financialAccuracy"
+
+  # ============================================================
+  # COMPARISONS — must mention all companies with numbers
+  # ============================================================
+
+  - description: "AAPL vs AMZN revenue comparison"
+    vars:
+      query: "Compare Apple and Amazon on revenue"
+      tickers: ["AAPL", "AMZN"]
+      maxWords: 400
+    assert:
+      - type: javascript
+        value: "file://scorers.js:comparisonCompleteness"
+      - type: javascript
+        value: "file://scorers.js:financialAccuracy"
+      - type: contains
+        value: "416"
+      - type: contains
+        value: "716"
+
+  - description: "AAPL vs AMZN profitability comparison"
+    vars:
+      query: "Compare AAPL vs AMZN on net income and operating margins"
+      tickers: ["AAPL", "AMZN"]
+      maxWords: 400
+    assert:
+      - type: javascript
+        value: "file://scorers.js:comparisonCompleteness"
+      - type: contains
+        value: "112"  # AAPL net income
+      - type: contains
+        value: "77"   # AMZN net income
+
+  - description: "Three-way comparison"
+    vars:
+      query: "Compare AAPL, AMZN, and BLK on revenue and debt"
+      tickers: ["AAPL", "AMZN", "BLK"]
+      maxWords: 500
+    assert:
+      - type: javascript
+        value: "file://scorers.js:comparisonCompleteness"
+
+  # ============================================================
+  # NARRATIVE / FILING TEXT — risk factors, business, MD&A
+  # ============================================================
+
+  - description: "AAPL risk factors"
+    vars:
+      query: "What are Apple's main risk factors?"
+      maxWords: 500
+    assert:
+      - type: llm-rubric
+        value: "The answer lists specific risk factors from Apple's 10-K filing, not generic business risks. It should mention concrete topics like supply chain, competition, regulatory, or geopolitical risks with citations."
+      - type: not-contains
+        value: "could not"
+      - type: not-contains
+        value: "unable to"
+
+  - description: "BLK business overview"
+    vars:
+      query: "What does BlackRock do? Give me a business overview."
+      maxWords: 400
+    assert:
+      - type: llm-rubric
+        value: "The answer describes BlackRock's core business (asset management, ETFs/iShares, Aladdin platform) based on their SEC filings, not generic knowledge."
+
+  - description: "AMZN business segments"
+    vars:
+      query: "What are Amazon's business segments?"
+      maxWords: 400
+    assert:
+      - type: llm-rubric
+        value: "The answer identifies Amazon's major segments (e.g., North America, International, AWS) with revenue or operational details from filings."
+
+  # ============================================================
+  # CONCISENESS — agent should be tight
+  # ============================================================
+
+  - description: "Simple revenue question should be short"
+    vars:
+      query: "What is AAPL revenue?"
+      ticker: "AAPL"
+      maxWords: 150
+    assert:
+      - type: javascript
+        value: "file://scorers.js:conciseness"
+      - type: contains
+        value: "416"
+
+  - description: "Yes/no style question should be brief"
+    vars:
+      query: "Is Apple's revenue growing?"
+      ticker: "AAPL"
+      maxWords: 150
+    assert:
+      - type: javascript
+        value: "file://scorers.js:conciseness"
+
+  # ============================================================
+  # EDGE CASES — graceful failures
+  # ============================================================
+
+  - description: "Unknown ticker"
+    vars:
+      query: "What is ZZZZ's revenue?"
+    assert:
+      - type: icontains
+        value: "not found"
+
+  - description: "Vague question with no ticker"
+    vars:
+      query: "How's the market doing?"
+    assert:
+      - type: llm-rubric
+        value: "The answer either asks for a specific company/ticker or explains it needs a ticker to look up. It does NOT make up data."
+
+  - description: "Question about non-public company"
+    vars:
+      query: "What is Stripe's revenue?"
+    assert:
+      - type: llm-rubric
+        value: "The answer indicates Stripe is not found in EDGAR or is a private company. It does NOT fabricate financial data."
+
+  # ============================================================
+  # FOLLOW-UP / CONTEXT — conversation continuity
+  # ============================================================
+
+  - description: "Specific metric query should use correct tool"
+    vars:
+      query: "What is AAPL's EPS?"
+      ticker: "AAPL"
+      maxWords: 150
+    assert:
+      - type: javascript
+        value: "file://scorers.js:financialAccuracy"
+
+  - description: "Multi-metric query"
+    vars:
+      query: "Give me AAPL revenue, net income, and R&D expense"
+      ticker: "AAPL"
+      maxWords: 200
+    assert:
+      - type: contains
+        value: "416"
+      - type: contains
+        value: "112"
+      - type: contains
+        value: "34"
+      - type: javascript
+        value: "file://scorers.js:financialAccuracy"
+
+  # ============================================================
+  # ANTI-HALLUCINATION — should NOT make up data
+  # ============================================================
+
+  - description: "Should not fabricate quarterly data"
+    vars:
+      query: "What was AAPL's Q3 2025 revenue?"
+      ticker: "AAPL"
+    assert:
+      - type: llm-rubric
+        value: "The answer either provides quarterly data from a filing or honestly states that only annual data is available. It does NOT fabricate a quarterly number."
+
+  - description: "Should not invent forward guidance"
+    vars:
+      query: "What is Apple's revenue forecast for 2027?"
+    assert:
+      - type: llm-rubric
+        value: "The answer states that forward projections are not available in SEC filings or that it only has historical data. It does NOT invent a forecast."
