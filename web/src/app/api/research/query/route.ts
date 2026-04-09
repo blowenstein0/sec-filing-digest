@@ -5,7 +5,11 @@ import { saveResearchLog } from "@/lib/research-log";
 
 export async function POST(request: Request) {
   // Accept either session auth or research password
-  const email = await getAuthenticatedEmail() || await getResearchAuth();
+  let email: string | null = null;
+  try { email = await getAuthenticatedEmail(); } catch { /* session lookup failed */ }
+  if (!email) {
+    try { email = await getResearchAuth(); } catch { /* cookie check failed */ }
+  }
   if (!email) {
     return Response.json({ error: "Not authenticated" }, { status: 401 });
   }

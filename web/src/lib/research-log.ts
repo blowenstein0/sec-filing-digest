@@ -5,7 +5,8 @@ import type { AgentStep } from "@/lib/agent/types";
 import type { Citation, ComparisonData } from "@/types";
 
 const client = DynamoDBDocumentClient.from(
-  new DynamoDBClient({ region: process.env.APP_REGION || process.env.AWS_REGION || "us-east-1" })
+  new DynamoDBClient({ region: process.env.APP_REGION || process.env.AWS_REGION || "us-east-1" }),
+  { marshallOptions: { removeUndefinedValues: true } }
 );
 const TABLE = process.env.RESEARCH_LOGS_TABLE || "sec-research-logs";
 
