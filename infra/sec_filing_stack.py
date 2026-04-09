@@ -375,7 +375,11 @@ class SecFilingStack(cdk.Stack):
             resources=["*"],
         ))
         amplify_role.add_to_policy(iam.PolicyStatement(
-            actions=["bedrock:InvokeModel"],
+            actions=["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"],
+            resources=["*"],
+        ))
+        amplify_role.add_to_policy(iam.PolicyStatement(
+            actions=["aws-marketplace:ViewSubscriptions", "aws-marketplace:Subscribe"],
             resources=["*"],
         ))
 
