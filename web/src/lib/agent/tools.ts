@@ -10,7 +10,6 @@ import {
   fetchCompanySubmissions,
   getLatest10K,
   fetchFilingText,
-  extractFilingSection,
 } from "@/lib/edgar";
 
 const ddbClient = DynamoDBDocumentClient.from(
@@ -180,136 +179,82 @@ const executors: Record<string, ToolExecutorFn> = {
     };
   },
 
-  get_filing_section: async (input) => {
+  read_filing: async (input) => {
     const ticker = (input.ticker as string).toUpperCase();
-    const section = input.section as "risk_factors" | "mda" | "business";
+    const formType = (input.form_type as string) || "10-K";
+    const year = input.year as number | undefined;
+    const topic = input.topic as string | undefined;
 
     const company = await lookupTicker(ticker);
     if (!company) {
       return { text: `Ticker "${ticker}" not found.`, sources: [] };
     }
 
-    await rateLimit();
-    const filing10K = await getLatest10K(company.cik);
-    if (!filing10K) {
-      return {
-        text: `No 10-K filing found for ${ticker}.`,
-        sources: [],
-      };
-    }
-
-    await rateLimit();
-    const text = await fetchFilingText(
-      company.cik,
-      filing10K.accessionNumber,
-      filing10K.primaryDocument
-    );
-    if (!text) {
-      return {
-        text: `Could not retrieve filing text for ${ticker} 10-K.`,
-        sources: [],
-      };
-    }
-
-    const extracted = extractFilingSection(text, section);
-    const sectionLabels: Record<string, string> = {
-      risk_factors: "Risk Factors (Item 1A)",
-      mda: "Management's Discussion & Analysis (Item 7)",
-      business: "Business Description (Item 1)",
-    };
-
-    const accNoFmt = filing10K.accessionNumber.replace(/-/g, "");
-    const filingUrl = `https://www.sec.gov/Archives/edgar/data/${company.cik}/${accNoFmt}/${filing10K.primaryDocument}`;
-
-    if (!extracted) {
-      return {
-        text: `Could not extract ${sectionLabels[section]} from ${ticker}'s 10-K (filed ${filing10K.filingDate}). The section heading may use non-standard formatting.`,
-        sources: [
-          {
-            type: "filing" as const,
-            label: `10-K filed ${filing10K.filingDate}`,
-            url: filingUrl,
-          },
-        ],
-      };
-    }
-
-    return {
-      text: `${sectionLabels[section]} from ${company.name}'s 10-K (filed ${filing10K.filingDate}):\n\n${extracted}`,
-      sources: [
-        {
-          type: "filing" as const,
-          label: `10-K filed ${filing10K.filingDate}`,
-          url: filingUrl,
-        },
-      ],
-    };
-  },
-
-  get_filing_list: async (input) => {
-    const ticker = (input.ticker as string).toUpperCase();
-    const formType = input.form_type as string | undefined;
-    const limit = (input.limit as number) || 10;
-
-    const company = await lookupTicker(ticker);
-    if (!company) {
-      return { text: `Ticker "${ticker}" not found.`, sources: [] };
-    }
-
+    // Find the right filing from submissions
     await rateLimit();
     const subs = await fetchCompanySubmissions(company.cik);
     if (!subs) {
-      return {
-        text: `Could not fetch filing history for ${ticker}.`,
-        sources: [],
-      };
+      return { text: `Could not fetch filings for ${ticker}.`, sources: [] };
     }
 
     const recent = subs.filings.recent;
-    const results: string[] = [];
-    let count = 0;
+    let filingIdx = -1;
 
-    for (let i = 0; i < recent.form.length && count < limit; i++) {
-      if (formType && recent.form[i] !== formType) continue;
-      results.push(
-        `${recent.form[i]} | ${recent.filingDate[i]} | ${recent.primaryDocDescription[i] || "N/A"} | Accession: ${recent.accessionNumber[i]}`
-      );
-      count++;
+    for (let i = 0; i < recent.form.length; i++) {
+      if (recent.form[i] !== formType) continue;
+      if (year) {
+        const filingYear = parseInt(recent.filingDate[i].slice(0, 4));
+        // Match the filing year or the fiscal year it covers (filed year or year before)
+        if (filingYear !== year && filingYear !== year + 1) continue;
+      }
+      filingIdx = i;
+      break;
     }
 
-    return {
-      text: `Recent filings for ${company.name} (${ticker}):\n${results.join("\n") || "No filings found."}`,
-      sources: [],
-    };
-  },
-
-  get_raw_filing_text: async (input) => {
-    const cik = input.cik as string;
-    const accessionNumber = input.accession_number as string;
-    const primaryDocument = input.primary_document as string;
-
-    await rateLimit();
-    const text = await fetchFilingText(cik, accessionNumber, primaryDocument);
-
-    if (!text) {
+    if (filingIdx === -1) {
+      // No matching filing — return the list of available ones
+      const available: string[] = [];
+      const seen = new Set<string>();
+      for (let i = 0; i < recent.form.length && available.length < 15; i++) {
+        const key = `${recent.form[i]}-${recent.filingDate[i]}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        available.push(`${recent.form[i]} | ${recent.filingDate[i]} | ${recent.primaryDocDescription[i] || "N/A"}`);
+      }
       return {
-        text: "Could not retrieve filing text.",
+        text: `No ${formType}${year ? ` for ${year}` : ""} found for ${ticker}. Available filings:\n${available.join("\n")}`,
         sources: [],
       };
     }
 
+    const accessionNumber = recent.accessionNumber[filingIdx];
+    const primaryDocument = recent.primaryDocument[filingIdx];
+    const filingDate = recent.filingDate[filingIdx];
+
+    await rateLimit();
+    const text = await fetchFilingText(company.cik, accessionNumber, primaryDocument);
+
     const accNoFmt = accessionNumber.replace(/-/g, "");
-    const url = `https://www.sec.gov/Archives/edgar/data/${cik}/${accNoFmt}/${primaryDocument}`;
+    const filingUrl = `https://www.sec.gov/Archives/edgar/data/${company.cik}/${accNoFmt}/${primaryDocument}`;
+    const source = {
+      type: "filing" as const,
+      label: `${formType} filed ${filingDate}`,
+      url: filingUrl,
+    };
+
+    if (!text || text.length < 100) {
+      return {
+        text: `Could not retrieve ${formType} text for ${ticker} (filed ${filingDate}).`,
+        sources: [source],
+      };
+    }
+
+    const header = `${company.name} ${formType} (filed ${filingDate})`;
+    const context = topic ? `. Focus on: ${topic}` : "";
 
     return {
-      text: text.slice(0, 40_000), // Leave room in context
-      sources: [
-        {
-          type: "filing" as const,
-          label: `Filing ${accessionNumber}`,
-          url,
-        },
-      ],
+      text: `${header}${context}\n\n${text}`,
+      sources: [source],
     };
   },
 };
@@ -337,18 +282,11 @@ export function getToolLabel(name: string, input: Record<string, unknown>): stri
       return `Looking up ${ticker || "ticker"}`;
     case "get_financial_metrics":
       return `Fetching financials for ${ticker || "company"}`;
-    case "get_filing_section": {
-      const sections: Record<string, string> = {
-        risk_factors: "risk factors",
-        mda: "MD&A",
-        business: "business description",
-      };
-      return `Reading ${sections[input.section as string] || "filing section"} for ${ticker || "company"}`;
+    case "read_filing": {
+      const ft = (input.form_type as string) || "10-K";
+      const yr = input.year ? ` (${input.year})` : "";
+      return `Reading ${ft}${yr} for ${ticker || "company"}`;
     }
-    case "get_filing_list":
-      return `Checking filing history for ${ticker || "company"}`;
-    case "get_raw_filing_text":
-      return `Reading filing document`;
     default:
       return `Running ${name}`;
   }
@@ -404,33 +342,9 @@ export const TOOL_CONFIG: ToolConfiguration = {
     },
     {
       toolSpec: {
-        name: "get_filing_section",
+        name: "read_filing",
         description:
-          "Extract a specific section from the company's most recent 10-K annual report. Available sections: risk_factors (Item 1A — risks and uncertainties), mda (Item 7 — Management's Discussion and Analysis), business (Item 1 — business overview and segments).",
-        inputSchema: {
-          json: {
-            type: "object",
-            properties: {
-              ticker: {
-                type: "string",
-                description: "Stock ticker symbol",
-              },
-              section: {
-                type: "string",
-                enum: ["risk_factors", "mda", "business"],
-                description: "Which section to extract from the 10-K",
-              },
-            },
-            required: ["ticker", "section"],
-          },
-        },
-      },
-    },
-    {
-      toolSpec: {
-        name: "get_filing_list",
-        description:
-          "List recent SEC filings for a company. Useful for seeing what filings are available, checking dates, or finding specific accession numbers for deeper reading.",
+          "Read the full text of an SEC filing for a company. By default fetches the most recent 10-K, but you can specify any form type (10-Q, 8-K, DEF 14A, etc.) and a specific year. Returns the complete filing text. If no matching filing is found, returns a list of available filings.",
         inputSchema: {
           json: {
             type: "object",
@@ -441,39 +355,18 @@ export const TOOL_CONFIG: ToolConfiguration = {
               },
               form_type: {
                 type: "string",
-                description:
-                  "Optional: filter by form type (e.g. '10-K', '10-Q', '8-K', 'DEF 14A')",
+                description: "Filing type: '10-K' (default), '10-Q', '8-K', 'DEF 14A', 'SC 13D', etc.",
               },
-              limit: {
+              year: {
                 type: "number",
-                description: "Maximum filings to return (default 10)",
+                description: "Fiscal year to target, e.g. 2023. Omit for the most recent filing.",
+              },
+              topic: {
+                type: "string",
+                description: "What you're looking for in the filing, e.g. 'risk factors', 'executive compensation', 'revenue breakdown'. Helps focus your analysis.",
               },
             },
             required: ["ticker"],
-          },
-        },
-      },
-    },
-    {
-      toolSpec: {
-        name: "get_raw_filing_text",
-        description:
-          "Fetch the full text of a specific SEC filing by its accession number and primary document. Use this when you need to read a filing that isn't the latest 10-K, or when you need the full text rather than a specific section.",
-        inputSchema: {
-          json: {
-            type: "object",
-            properties: {
-              cik: { type: "string", description: "Company CIK number" },
-              accession_number: {
-                type: "string",
-                description: "Filing accession number (e.g. 0000320193-24-000123)",
-              },
-              primary_document: {
-                type: "string",
-                description: "Primary document filename (e.g. aapl-20240928.htm)",
-              },
-            },
-            required: ["cik", "accession_number", "primary_document"],
           },
         },
       },

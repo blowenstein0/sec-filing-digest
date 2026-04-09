@@ -19,6 +19,15 @@
 - CDK deploys from `infra/` directory
 - Push script updates to EC2 via SSM (don't redeploy CDK for script-only changes)
 
+## Research Tool
+- Chat-based research at `/research` — agentic LLM (Sonnet for tools, Opus 4.6 for synthesis)
+- Tools: `lookup_ticker`, `get_financial_metrics` (DynamoDB cache), `read_filing` (full filing text)
+- Pre-normalized XBRL data in `sec-financial-metrics` table (AAPL, BLK, AMZN populated)
+- Agent logs + user feedback in `sec-research-logs` table
+- Normalizer script: `scripts/normalize_xbrl.py TICKER1 TICKER2 ...`
+- Dev server: `cd web && METRICS_TABLE=sec-financial-metrics RESEARCH_LOGS_TABLE=sec-research-logs npm run dev -- -p 3001`
+- Auth bypassed in dev mode
+
 ## Conventions
 - Never ask for confirmation before actions (only pause for force-push to main, deleting prod resources)
 - Keep responses short and direct

@@ -90,8 +90,23 @@ export async function fetchFilingText(
   if (!res.ok) return "";
 
   let text = await res.text();
-  // Strip HTML tags
+
+  // Remove entire XBRL hidden blocks (iXBRL filings wrap metadata in hidden divs)
+  text = text.replace(/<div[^>]*style="[^"]*display:\s*none[^"]*"[^>]*>[\s\S]*?<\/div>/gi, " ");
+
+  // Remove ix:header blocks (inline XBRL metadata)
+  text = text.replace(/<ix:header>[\s\S]*?<\/ix:header>/gi, " ");
+
+  // Remove all ix: and xbrli: elements but keep their text content
+  text = text.replace(/<\/?(?:ix|xbrli|xbrldi|link|xlink):[^>]*>/gi, " ");
+
+  // Strip remaining HTML tags
   text = text.replace(/<[^>]+>/g, " ");
+
+  // Remove common XBRL artifacts that survive tag stripping
+  text = text.replace(/\b(?:us-gaap|dei|srt|country):[A-Za-z]+\b/g, " ");
+  text = text.replace(/http:\/\/(?:fasb\.org|xbrl\.sec\.gov|www\.w3\.org)\S*/g, " ");
+
   // Normalize whitespace
   text = text.replace(/\s+/g, " ").trim();
 
