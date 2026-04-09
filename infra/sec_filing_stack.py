@@ -610,7 +610,7 @@ class SecFilingStack(cdk.Stack):
                 "BEDROCK_SONNET_MODEL_ID": "us.anthropic.claude-sonnet-4-20250514-v1:0",
                 "BEDROCK_OPUS_MODEL_ID": "us.anthropic.claude-opus-4-6-v1",
             },
-            port_mappings=[ecs.PortMapping(container_port=3000)],
+            port_mappings=[ecs.PortMapping(container_port=3000, protocol=ecs.Protocol.TCP)],
             health_check=ecs.HealthCheck(
                 command=["CMD-SHELL", "wget -q --spider http://localhost:3000/ || exit 1"],
                 interval=cdk.Duration.seconds(30),
