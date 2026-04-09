@@ -22,7 +22,7 @@ export const SONNET_MODEL_ID =
 
 export const OPUS_MODEL_ID =
   process.env.BEDROCK_OPUS_MODEL_ID ||
-  "us.anthropic.claude-opus-4-20250514-v1:0";
+  "us.anthropic.claude-opus-4-6-20250620-v1:0";
 
 // --- Legacy InvokeModel (kept for backward compat) ---
 
