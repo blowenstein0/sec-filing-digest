@@ -13,6 +13,7 @@ from aws_cdk import (
     aws_lambda as _lambda,
     aws_lambda_event_sources as lambda_events,
     aws_logs as logs,
+    aws_s3vectors as s3vectors,
     aws_route53 as route53,
     aws_route53_targets as targets,
     aws_s3 as s3,
@@ -230,6 +231,22 @@ class SecFilingStack(cdk.Stack):
             resources=["*"],
         ))
 
+        # S3 Vectors bucket and index
+        vector_bucket = s3vectors.CfnVectorBucket(
+            self, "VectorBucket",
+            vector_bucket_name="sec-filing-vectors",
+        )
+
+        vector_index = s3vectors.CfnIndex(
+            self, "VectorIndex",
+            vector_bucket_name="sec-filing-vectors",
+            index_name="sec-filing-index",
+            data_type="float32",
+            dimension=1024,
+            distance_metric="cosine",
+        )
+        vector_index.add_dependency(vector_bucket)
+
         # Knowledge Base
         kb = bedrock.CfnKnowledgeBase(
             self, "FilingKB",
@@ -249,7 +266,9 @@ class SecFilingStack(cdk.Stack):
             storage_configuration=bedrock.CfnKnowledgeBase.StorageConfigurationProperty(
                 type="S3_VECTORS",
                 s3_vectors_configuration=bedrock.CfnKnowledgeBase.S3VectorsConfigurationProperty(
-                    # Let Bedrock auto-create the S3 Vectors bucket and index
+                    vector_bucket_arn=vector_bucket.attr_vector_bucket_arn,
+                    index_arn=vector_index.attr_index_arn,
+                    index_name="sec-filing-index",
                 ),
             ),
         )
