@@ -6,7 +6,7 @@ const ddbClient = DynamoDBDocumentClient.from(
   new DynamoDBClient({ region: process.env.APP_REGION || process.env.AWS_REGION || "us-east-1" }),
   { marshallOptions: { removeUndefinedValues: true } }
 );
-const FILING_TEXT_TABLE = process.env.FILING_TEXT_TABLE || "sec-filing-text-cache";
+const FILING_TEXT_TABLE = process.env.FILING_TEXT_TABLE || "sec-filing-text";
 
 const EDGAR_HEADERS = {
   "User-Agent": "ZipperDataBrief/1.0 (your-email@example.com)",

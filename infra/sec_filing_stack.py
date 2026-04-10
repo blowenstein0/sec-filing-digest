@@ -157,8 +157,8 @@ class SecFilingStack(cdk.Stack):
 
         # Filing text cache (stripped 10-K/10-Q text)
         filing_text_table = dynamodb.Table(
-            self, "FilingTextCacheTable",
-            table_name="sec-filing-text-cache",
+            self, "FilingTextCache",
+            table_name="sec-filing-text",
             partition_key=dynamodb.Attribute(
                 name="filing_key", type=dynamodb.AttributeType.STRING
             ),
@@ -192,19 +192,9 @@ class SecFilingStack(cdk.Stack):
 
         # S3 bucket for filing text documents
         filing_bucket = s3.Bucket(
-            self, "FilingTextBucket",
-            bucket_name=f"sec-filing-rag-{cdk.Aws.ACCOUNT_ID}",
+            self, "FilingRagBucket",
+            bucket_name=f"sec-filing-rag-docs-{cdk.Aws.ACCOUNT_ID}",
             removal_policy=cdk.RemovalPolicy.RETAIN,
-            lifecycle_rules=[
-                s3.LifecycleRule(
-                    transitions=[
-                        s3.Transition(
-                            storage_class=s3.StorageClass.INFREQUENT_ACCESS,
-                            transition_after=cdk.Duration.days(90),
-                        ),
-                    ],
-                ),
-            ],
         )
 
         # KB service role
@@ -268,7 +258,6 @@ class SecFilingStack(cdk.Stack):
                 s3_vectors_configuration=bedrock.CfnKnowledgeBase.S3VectorsConfigurationProperty(
                     vector_bucket_arn=vector_bucket.attr_vector_bucket_arn,
                     index_arn=vector_index.attr_index_arn,
-                    index_name="sec-filing-index",
                 ),
             ),
         )
@@ -767,7 +756,7 @@ def handler(event, context):
                 "BEDROCK_MODEL_ID": "us.anthropic.claude-haiku-4-5-20251001-v1:0",
                 "BEDROCK_SONNET_MODEL_ID": "us.anthropic.claude-sonnet-4-20250514-v1:0",
                 "BEDROCK_OPUS_MODEL_ID": "us.anthropic.claude-opus-4-6-v1",
-                "FILING_TEXT_TABLE": filing_text_table.table_name,
+                "FILING_TEXT_TABLE": "sec-filing-text",
                 "KNOWLEDGE_BASE_ID": kb.attr_knowledge_base_id,
                 "FILING_TEXT_BUCKET": filing_bucket.bucket_name,
                 "HOSTNAME": "0.0.0.0",

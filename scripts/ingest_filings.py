@@ -21,7 +21,7 @@ import boto3
 import requests
 
 AWS_REGION = os.environ.get("AWS_REGION", "us-east-1")
-FILING_BUCKET = os.environ.get("FILING_TEXT_BUCKET", f"sec-filing-rag-{boto3.client('sts').get_caller_identity()['Account']}")
+FILING_BUCKET = os.environ.get("FILING_TEXT_BUCKET", f"sec-filing-rag-docs-{boto3.client('sts').get_caller_identity()['Account']}")
 EDGAR_HEADERS = {"User-Agent": "ZipperDataBrief/1.0 (your-email@example.com)"}
 RATE_DELAY = 0.15
 
