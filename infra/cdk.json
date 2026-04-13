@@ -1,8 +1,12 @@
 {
   "app": "python3 app.py",
   "context": {
-    "aws_account": "REDACTED_ACCOUNT_ID",
+    "aws_account": "YOUR_AWS_ACCOUNT_ID",
     "aws_region": "us-east-1",
-    "github_repo": "YOUR_GITHUB_USERNAME/sec-filing-digest"
+    "github_repo": "YOUR_GITHUB_USERNAME/sec-filing-digest",
+    "sender_email": "filings@yourdomain.com",
+    "admin_email": "you@example.com",
+    "alert_email": "you@example.com",
+    "edgar_user_agent": "YourApp/1.0 (you@example.com)"
   }
 }

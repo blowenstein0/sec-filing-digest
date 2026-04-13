@@ -2,8 +2,8 @@ import { SESClient, SendEmailCommand } from "@aws-sdk/client-ses";
 import { BASE_URL } from "@/lib/constants";
 
 const ses = new SESClient({ region: process.env.APP_REGION || process.env.AWS_REGION || "us-east-1" });
-const SENDER_EMAIL = process.env.SENDER_EMAIL || "filings@zipperdatabrief.com";
-const ADMIN_EMAIL = "your-email@example.com";
+const SENDER_EMAIL = process.env.SENDER_EMAIL || "filings@example.com";
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "admin@example.com";
 
 export async function sendMagicLinkEmail(
   email: string,
@@ -45,7 +45,7 @@ export async function sendMagicLinkEmail(
 
   await ses.send(new SendEmailCommand({
     Source: SENDER_EMAIL,
-    ReplyToAddresses: ["your-email@example.com"],
+    ReplyToAddresses: [ADMIN_EMAIL],
     Destination: { ToAddresses: [email] },
     Message: {
       Subject: { Data: subject, Charset: "UTF-8" },

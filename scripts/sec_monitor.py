@@ -24,7 +24,7 @@ EDGAR_FILING_INDEX = "https://www.sec.gov/cgi-bin/browse-edgar"
 # EDGAR requires a User-Agent header with contact info
 EDGAR_USER_AGENT = os.environ.get(
     "EDGAR_USER_AGENT",
-    "ZipperDataBrief/1.0 (your-email@example.com)"
+    "SecFilingDigest/1.0 (your-email@example.com)"
 )
 EDGAR_HEADERS = {
     "User-Agent": EDGAR_USER_AGENT,
@@ -37,7 +37,7 @@ EDGAR_REQUEST_DELAY = 0.15  # seconds between requests
 FILINGS_TABLE = os.environ.get("FILINGS_TABLE", "sec-filing-cache")
 USERS_TABLE = os.environ.get("USERS_TABLE", "sec-filing-users")
 WATCHLISTS_TABLE = os.environ.get("WATCHLISTS_TABLE", "sec-filing-watchlists")
-SENDER_EMAIL = os.environ.get("SEC_SENDER_EMAIL", "filings@zipperdatabrief.com")
+SENDER_EMAIL = os.environ.get("SEC_SENDER_EMAIL", "filings@example.com")
 AWS_REGION = os.environ.get("AWS_REGION", "us-east-1")
 REQUEST_TIMEOUT = 15
 

@@ -2,7 +2,7 @@ import { getAuthenticatedEmail } from "@/lib/auth";
 
 const EDGAR_TICKERS_URL = "https://www.sec.gov/files/company_tickers.json";
 const EDGAR_HEADERS = {
-  "User-Agent": "ZipperDataBrief/1.0 (your-email@example.com)",
+  "User-Agent": process.env.EDGAR_USER_AGENT || "SecFilingDigest/1.0 (your-email@example.com)",
 };
 
 // Cache the ticker map in memory (refreshed per cold start)

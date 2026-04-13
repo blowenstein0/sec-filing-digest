@@ -21,7 +21,7 @@ import requests
 
 AWS_REGION = os.environ.get("AWS_REGION", "us-east-1")
 METRICS_TABLE = os.environ.get("METRICS_TABLE", "sec-financial-metrics")
-EDGAR_HEADERS = {"User-Agent": "ZipperDataBrief/1.0 (your-email@example.com)"}
+EDGAR_HEADERS = {"User-Agent": os.environ.get("EDGAR_USER_AGENT", "SecFilingDigest/1.0 (your-email@example.com)")}
 RATE_DELAY = 0.15  # 150ms between EDGAR requests
 
 # Multiple XBRL concepts per metric — companies use different tags

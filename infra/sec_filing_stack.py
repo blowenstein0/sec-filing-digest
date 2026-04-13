@@ -30,6 +30,12 @@ class SecFilingStack(cdk.Stack):
     def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
+        # --- Configuration from cdk.json context ---
+        sender_email = self.node.try_get_context("sender_email") or "filings@example.com"
+        admin_email = self.node.try_get_context("admin_email") or "admin@example.com"
+        alert_email = self.node.try_get_context("alert_email") or admin_email
+        edgar_user_agent = self.node.try_get_context("edgar_user_agent") or "SecFilingDigest/1.0 (your-email@example.com)"
+
         # --- VPC (single public subnet, no NAT) ---
         vpc = ec2.Vpc(
             self, "SecFilingVpc",
@@ -415,10 +421,10 @@ def handler(event, context):
             "# Set up cron jobs for ec2-user",
             "cat > /tmp/sec_crontab << 'CRON'",
             "# Fetch new EDGAR filings daily at 5am EST (10:00 UTC), 2hr before digest send",
-            f"0 10 * * * cd /home/ec2-user/sec-filing-digest && FILINGS_TABLE={filings_table.table_name} USERS_TABLE={users_table.table_name} WATCHLISTS_TABLE={watchlists_table.table_name} /usr/bin/python3.12 /home/ec2-user/sec-filing-digest/sec_monitor.py >> /var/log/sec_monitor.log 2>&1",
+            f"0 10 * * * cd /home/ec2-user/sec-filing-digest && EDGAR_USER_AGENT='{edgar_user_agent}' FILINGS_TABLE={filings_table.table_name} USERS_TABLE={users_table.table_name} WATCHLISTS_TABLE={watchlists_table.table_name} /usr/bin/python3.12 /home/ec2-user/sec-filing-digest/sec_monitor.py >> /var/log/sec_monitor.log 2>&1",
             "",
             "# Send daily digest at 7am EST (12:00 UTC)",
-            f"0 12 * * * cd /home/ec2-user/sec-filing-digest && SEC_SENDER_EMAIL=filings@zipperdatabrief.com FILINGS_TABLE={filings_table.table_name} USERS_TABLE={users_table.table_name} WATCHLISTS_TABLE={watchlists_table.table_name} /usr/bin/python3.12 /home/ec2-user/sec-filing-digest/sec_monitor.py --send-digest >> /var/log/sec_monitor.log 2>&1",
+            f"0 12 * * * cd /home/ec2-user/sec-filing-digest && SEC_SENDER_EMAIL={sender_email} EDGAR_USER_AGENT='{edgar_user_agent}' FILINGS_TABLE={filings_table.table_name} USERS_TABLE={users_table.table_name} WATCHLISTS_TABLE={watchlists_table.table_name} /usr/bin/python3.12 /home/ec2-user/sec-filing-digest/sec_monitor.py --send-digest >> /var/log/sec_monitor.log 2>&1",
             "CRON",
             "crontab -u ec2-user /tmp/sec_crontab",
             "rm /tmp/sec_crontab",
@@ -479,7 +485,7 @@ def handler(event, context):
             topic_name="sec-filing-email-alerts",
         )
         email_alerts_topic.add_subscription(
-            subs.EmailSubscription("your-email@example.com")
+            subs.EmailSubscription(alert_email)
         )
 
         # --- CloudWatch Dashboard ---
@@ -570,7 +576,7 @@ def handler(event, context):
         amplify_app = amplify.CfnApp(
             self, "SecFilingWeb",
             name="sec-filing-digest",
-            repository=f"https://github.com/{self.node.try_get_context('github_repo') or 'YOUR_GITHUB_USERNAME/sec-filing-digest'}",
+            repository=f"https://github.com/{self.node.try_get_context('github_repo')}",
             access_token=github_token.unsafe_unwrap(),
             iam_service_role=amplify_role.role_arn,
             compute_role_arn=amplify_role.role_arn,
@@ -612,7 +618,13 @@ def handler(event, context):
                     name="WATCHLISTS_TABLE", value=watchlists_table.table_name,
                 ),
                 amplify.CfnApp.EnvironmentVariableProperty(
-                    name="SENDER_EMAIL", value="filings@zipperdatabrief.com",
+                    name="SENDER_EMAIL", value=sender_email,
+                ),
+                amplify.CfnApp.EnvironmentVariableProperty(
+                    name="ADMIN_EMAIL", value=admin_email,
+                ),
+                amplify.CfnApp.EnvironmentVariableProperty(
+                    name="EDGAR_USER_AGENT", value=edgar_user_agent,
                 ),
                 amplify.CfnApp.EnvironmentVariableProperty(
                     name="BASE_URL", value="https://sec.zipperdatabrief.com",
@@ -750,7 +762,9 @@ def handler(event, context):
                 "WATCHLISTS_TABLE": watchlists_table.table_name,
                 "METRICS_TABLE": "sec-financial-metrics",
                 "RESEARCH_LOGS_TABLE": research_logs_table.table_name,
-                "SENDER_EMAIL": "filings@zipperdatabrief.com",
+                "SENDER_EMAIL": sender_email,
+                "ADMIN_EMAIL": admin_email,
+                "EDGAR_USER_AGENT": edgar_user_agent,
                 "BASE_URL": "https://sec.zipperdatabrief.com",
                 "NEXT_PUBLIC_BASE_URL": "https://sec.zipperdatabrief.com",
                 "BEDROCK_MODEL_ID": "us.anthropic.claude-haiku-4-5-20251001-v1:0",

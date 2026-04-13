@@ -9,7 +9,7 @@ const ddbClient = DynamoDBDocumentClient.from(
 const FILING_TEXT_TABLE = process.env.FILING_TEXT_TABLE || "sec-filing-text";
 
 const EDGAR_HEADERS = {
-  "User-Agent": "ZipperDataBrief/1.0 (your-email@example.com)",
+  "User-Agent": process.env.EDGAR_USER_AGENT || "SecFilingDigest/1.0 (your-email@example.com)",
   Accept: "application/json",
 };
 

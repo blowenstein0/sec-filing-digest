@@ -11,6 +11,7 @@ venv/
 # CDK
 cdk.out/
 .cdk.staging/
+cdk.context.json
 
 # Node
 node_modules/
@@ -29,6 +30,9 @@ out/
 # OS
 .DS_Store
 Thumbs.db
+
+# Claude Code
+.claude/
 
 # Testing
 .pytest_cache/

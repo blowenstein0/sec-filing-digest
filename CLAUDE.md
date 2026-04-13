@@ -6,8 +6,10 @@
 - **web/** — Next.js frontend on Amplify at zipperdatabrief.com/sec (TBD)
 
 ## Key Details
-- AWS account: REDACTED_ACCOUNT_ID, region: us-east-1
-- Sender email: filings@zipperdatabrief.com
+- AWS region: us-east-1
+- Sender email: set via `SENDER_EMAIL` env var
+- Admin email: set via `ADMIN_EMAIL` env var
+- EDGAR User-Agent: set via `EDGAR_USER_AGENT` env var (SEC requires contact info)
 - AI summarization via Bedrock (Claude Haiku): us.anthropic.claude-haiku-4-5-20251001-v1:0
 - CDK stack name: SecFilingDigestStack
 - DynamoDB tables: sec-filing-users, sec-filing-watchlists, sec-filing-cache, sec-filing-sessions, sec-filing-magic-links
