@@ -2,15 +2,9 @@
 // The agent detects comparison intent and fetches data for multiple companies.
 // This route redirects for backward compatibility.
 
-import { getAuthenticatedEmail } from "@/lib/auth";
 import { runResearchAgent } from "@/lib/agent/orchestrator";
 
 export async function POST(request: Request) {
-  const email = await getAuthenticatedEmail();
-  if (!email) {
-    return Response.json({ error: "Not authenticated" }, { status: 401 });
-  }
-
   const body = await request.json();
   const { tickers, query } = body;
 

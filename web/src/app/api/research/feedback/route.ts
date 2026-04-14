@@ -1,17 +1,6 @@
-import { getAuthenticatedEmail } from "@/lib/auth";
-import { getResearchAuth } from "@/lib/research-auth";
 import { saveFeedback } from "@/lib/research-log";
 
 export async function POST(request: Request) {
-  let email: string | null = null;
-  try { email = await getAuthenticatedEmail(); } catch { /* */ }
-  if (!email) {
-    try { email = await getResearchAuth(); } catch { /* */ }
-  }
-  if (!email) {
-    return Response.json({ error: "Not authenticated" }, { status: 401 });
-  }
-
   const body = await request.json();
   const { logId, feedback } = body;
 
