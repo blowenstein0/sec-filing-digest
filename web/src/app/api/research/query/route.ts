@@ -1,7 +1,16 @@
 import { runResearchAgent } from "@/lib/agent/orchestrator";
 import { saveResearchLog } from "@/lib/research-log";
+import { rateLimit } from "@/lib/rate-limit";
+
+const MAX_QUERY_LENGTH = 2_000;
+const MAX_HISTORY_CONTENT_LENGTH = 10_000;
 
 export async function POST(request: Request) {
+  const { limited } = rateLimit(request, { maxRequests: 10, windowMs: 60_000 });
+  if (limited) {
+    return Response.json({ error: "Too many requests. Try again later." }, { status: 429 });
+  }
+
   const email = "guest@research";
 
   const body = await request.json();
@@ -11,8 +20,19 @@ export async function POST(request: Request) {
     return Response.json({ error: "Query required" }, { status: 400 });
   }
 
+  if (query.length > MAX_QUERY_LENGTH) {
+    return Response.json({ error: `Query too long (max ${MAX_QUERY_LENGTH} chars)` }, { status: 400 });
+  }
+
   const chatHistory: { role: string; content: string }[] =
-    Array.isArray(history) ? history.slice(-20) : [];
+    Array.isArray(history)
+      ? history
+          .slice(-20)
+          .filter((m: { role?: string; content?: string }) =>
+            typeof m.content === "string" && m.content.length <= MAX_HISTORY_CONTENT_LENGTH &&
+            (m.role === "user" || m.role === "assistant")
+          )
+      : [];
 
   const encoder = new TextEncoder();
   const startTime = Date.now();
