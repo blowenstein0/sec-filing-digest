@@ -15,11 +15,7 @@ import requests
 from botocore.exceptions import ClientError
 
 # --- Configuration ---
-EDGAR_RSS_BASE = "https://efts.sec.gov/LATEST/search-index"
-EDGAR_FULL_TEXT_SEARCH = "https://efts.sec.gov/LATEST/search-index"
-EDGAR_FILING_API = "https://efts.sec.gov/LATEST/search-index"
 EDGAR_COMPANY_FILINGS = "https://data.sec.gov/submissions/CIK{cik}.json"
-EDGAR_FILING_INDEX = "https://www.sec.gov/cgi-bin/browse-edgar"
 
 # EDGAR requires a User-Agent header with contact info
 EDGAR_USER_AGENT = os.environ.get(

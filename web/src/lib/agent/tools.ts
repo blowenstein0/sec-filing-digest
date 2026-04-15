@@ -1,9 +1,11 @@
 import type { ToolConfiguration } from "@aws-sdk/client-bedrock-runtime";
 import type { Citation } from "@/types";
-import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient, GetCommand } from "@aws-sdk/lib-dynamodb";
+import { GetCommand } from "@aws-sdk/lib-dynamodb";
+import { ddbClient } from "@/lib/dynamodb";
 import {
   lookupTicker,
+  padCik,
+  formatNumber,
   fetchCompanyFacts,
   extractFinancialMetrics,
   formatFinancialsForLLM,
@@ -13,9 +15,6 @@ import {
 } from "@/lib/edgar";
 import { searchFilingChunks, uploadForIndexing } from "@/lib/rag";
 
-const ddbClient = DynamoDBDocumentClient.from(
-  new DynamoDBClient({ region: process.env.APP_REGION || process.env.AWS_REGION || "us-east-1" })
-);
 const METRICS_TABLE = process.env.METRICS_TABLE || "sec-financial-metrics";
 
 // Rate limiting — shared across all tool calls in a single agent run
@@ -78,7 +77,7 @@ async function getCachedMetrics(ticker: string): Promise<ToolResult | null> {
         .map((p) => {
           const val = Number(p.value);
           metaFinancials.push({ label, value: val, year: p.year });
-          return `FY${p.year}: ${formatDollar(val, label)}`;
+          return `FY${p.year}: ${formatNumber(val, label)}`;
         })
         .join(", ");
       lines.push(`${label}: ${values}`);
@@ -90,7 +89,7 @@ async function getCachedMetrics(ticker: string): Promise<ToolResult | null> {
         {
           type: "xbrl" as const,
           label: `XBRL (normalized) — ${item.company_name}`,
-          url: `https://data.sec.gov/api/xbrl/companyfacts/CIK${String(item.cik).padStart(10, "0")}.json`,
+          url: `https://data.sec.gov/api/xbrl/companyfacts/CIK${padCik(String(item.cik))}.json`,
         },
       ],
       meta: { ticker, financials: metaFinancials },
@@ -100,14 +99,6 @@ async function getCachedMetrics(ticker: string): Promise<ToolResult | null> {
   }
 }
 
-function formatDollar(value: number, label: string): string {
-  if (label.includes("EPS")) return `$${value.toFixed(2)}`;
-  const abs = Math.abs(value);
-  if (abs >= 1e12) return `$${(value / 1e12).toFixed(1)}T`;
-  if (abs >= 1e9) return `$${(value / 1e9).toFixed(1)}B`;
-  if (abs >= 1e6) return `$${(value / 1e6).toFixed(0)}M`;
-  return `$${value.toLocaleString()}`;
-}
 
 const executors: Record<string, ToolExecutorFn> = {
   lookup_ticker: async (input) => {
@@ -161,7 +152,7 @@ const executors: Record<string, ToolExecutorFn> = {
     }
 
     const formatted = formatFinancialsForLLM(metrics);
-    const cikPadded = company.cik.padStart(10, "0");
+    const cikPadded = padCik(company.cik);
 
     const metaFinancials = metrics.flatMap((m) =>
       m.periods.map((p) => ({ label: m.label, value: p.value, year: p.year }))
