@@ -12,6 +12,7 @@ venv/
 cdk.out/
 .cdk.staging/
 cdk.context.json
+infra/cdk.json
 
 # Node
 node_modules/

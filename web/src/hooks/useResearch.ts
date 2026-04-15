@@ -44,8 +44,12 @@ export function useResearch() {
       });
 
       if (!response.ok) {
-        const data = await response.json();
-        setError(data.error || "Something went wrong.");
+        let msg = `HTTP ${response.status}`;
+        try {
+          const data = await response.json();
+          msg = data.error || msg;
+        } catch { /* non-JSON error body */ }
+        setError(msg);
         setLoading(false);
         return;
       }
@@ -132,7 +136,9 @@ export function useResearch() {
       if (err instanceof DOMException && err.name === "AbortError") {
         // User cancelled
       } else {
-        setError("Failed to connect. Please try again.");
+        console.error("[useResearch] Error:", err);
+        const msg = err instanceof Error ? err.message : String(err);
+        setError(`Failed to connect: ${msg}`);
       }
     } finally {
       setLoading(false);

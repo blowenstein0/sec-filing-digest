@@ -1,7 +1,6 @@
 import json
 import aws_cdk as cdk
 from aws_cdk import (
-    aws_amplify as amplify,
     aws_bedrock as bedrock,
     aws_certificatemanager as acm,
     aws_dynamodb as dynamodb,
@@ -532,140 +531,18 @@ def handler(event, context):
             ),
         )
 
-        # --- Amplify Frontend ---
-        github_token = cdk.SecretValue.secrets_manager("sec-filing-digest/github-token")
+        # ============================================================
+        # FARGATE DEPLOYMENT
+        # ============================================================
 
-        amplify_role = iam.Role(
-            self, "AmplifyRole",
-            assumed_by=iam.CompositePrincipal(
-                iam.ServicePrincipal("amplify.amazonaws.com"),
-                iam.ServicePrincipal("lambda.amazonaws.com"),
-                iam.ServicePrincipal("edgelambda.amazonaws.com"),
-            ),
-            managed_policies=[
-                iam.ManagedPolicy.from_aws_managed_policy_name(
-                    "service-role/AWSLambdaBasicExecutionRole"
-                ),
-                iam.ManagedPolicy.from_aws_managed_policy_name(
-                    "AdministratorAccess-Amplify"
-                ),
-            ],
-        )
         metrics_table = dynamodb.Table.from_table_name(
             self, "MetricsTable", "sec-financial-metrics",
         )
-        users_table.grant_read_write_data(amplify_role)
-        sessions_table.grant_read_write_data(amplify_role)
-        magic_links_table.grant_read_write_data(amplify_role)
-        watchlists_table.grant_read_write_data(amplify_role)
-        metrics_table.grant_read_data(amplify_role)
-        research_logs_table.grant_read_write_data(amplify_role)
-        amplify_role.add_to_policy(iam.PolicyStatement(
-            actions=["ses:SendEmail", "ses:SendRawEmail"],
-            resources=["*"],
-        ))
-        amplify_role.add_to_policy(iam.PolicyStatement(
-            actions=["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"],
-            resources=["*"],
-        ))
-        amplify_role.add_to_policy(iam.PolicyStatement(
-            actions=["aws-marketplace:ViewSubscriptions", "aws-marketplace:Subscribe"],
-            resources=["*"],
-        ))
 
-        amplify_app = amplify.CfnApp(
-            self, "SecFilingWeb",
-            name="sec-filing-digest",
-            repository=f"https://github.com/{self.node.try_get_context('github_repo')}",
-            access_token=github_token.unsafe_unwrap(),
-            iam_service_role=amplify_role.role_arn,
-            compute_role_arn=amplify_role.role_arn,
-            platform="WEB_COMPUTE",
-            build_spec=json.dumps({
-                "version": 1,
-                "applications": [{
-                    "appRoot": "web",
-                    "frontend": {
-                        "phases": {
-                            "preBuild": {"commands": ["npm ci"]},
-                            "build": {"commands": ["npm run build"]},
-                        },
-                        "artifacts": {
-                            "baseDirectory": ".next",
-                            "files": ["**/*"],
-                        },
-                        "cache": {"paths": ["node_modules/**/*"]},
-                    },
-                }],
-            }),
-            environment_variables=[
-                amplify.CfnApp.EnvironmentVariableProperty(
-                    name="AMPLIFY_MONOREPO_APP_ROOT", value="web",
-                ),
-                amplify.CfnApp.EnvironmentVariableProperty(
-                    name="APP_REGION", value="us-east-1",
-                ),
-                amplify.CfnApp.EnvironmentVariableProperty(
-                    name="USERS_TABLE", value=users_table.table_name,
-                ),
-                amplify.CfnApp.EnvironmentVariableProperty(
-                    name="SESSIONS_TABLE", value=sessions_table.table_name,
-                ),
-                amplify.CfnApp.EnvironmentVariableProperty(
-                    name="MAGIC_LINKS_TABLE", value=magic_links_table.table_name,
-                ),
-                amplify.CfnApp.EnvironmentVariableProperty(
-                    name="WATCHLISTS_TABLE", value=watchlists_table.table_name,
-                ),
-                amplify.CfnApp.EnvironmentVariableProperty(
-                    name="SENDER_EMAIL", value=sender_email,
-                ),
-                amplify.CfnApp.EnvironmentVariableProperty(
-                    name="ADMIN_EMAIL", value=admin_email,
-                ),
-                amplify.CfnApp.EnvironmentVariableProperty(
-                    name="EDGAR_USER_AGENT", value=edgar_user_agent,
-                ),
-                amplify.CfnApp.EnvironmentVariableProperty(
-                    name="BASE_URL", value="https://sec.zipperdatabrief.com",
-                ),
-                amplify.CfnApp.EnvironmentVariableProperty(
-                    name="NEXT_PUBLIC_BASE_URL", value="https://sec.zipperdatabrief.com",
-                ),
-                amplify.CfnApp.EnvironmentVariableProperty(
-                    name="BEDROCK_MODEL_ID", value="us.anthropic.claude-haiku-4-5-20251001-v1:0",
-                ),
-                amplify.CfnApp.EnvironmentVariableProperty(
-                    name="BEDROCK_SONNET_MODEL_ID", value="us.anthropic.claude-sonnet-4-20250514-v1:0",
-                ),
-                amplify.CfnApp.EnvironmentVariableProperty(
-                    name="METRICS_TABLE", value="sec-financial-metrics",
-                ),
-                amplify.CfnApp.EnvironmentVariableProperty(
-                    name="RESEARCH_LOGS_TABLE", value="sec-research-logs",
-                ),
-            ],
-        )
-
-        amplify_branch = amplify.CfnBranch(
-            self, "MainBranch",
-            app_id=amplify_app.attr_app_id,
-            branch_name="main",
-            enable_auto_build=True,
-            framework="Next.js - SSR",
-        )
-
-        # --- Custom Domain ---
         brief_zone = route53.HostedZone.from_lookup(
             self, "BriefZone",
             domain_name="zipperdatabrief.com",
         )
-
-        # Amplify domain removed — sec.zipperdatabrief.com now points to Fargate ALB
-
-        # ============================================================
-        # FARGATE DEPLOYMENT (no timeout limits, SSE streaming, Opus)
-        # ============================================================
 
         # --- ECR Repository (already exists from prior deploy) ---
         web_repo = ecr.Repository.from_repository_name(
@@ -866,8 +743,4 @@ def handler(event, context):
         )
         cdk.CfnOutput(self, "AppLogGroupName",
             value=app_log_group.log_group_name,
-        )
-        cdk.CfnOutput(self, "AmplifyAppUrl",
-            value=f"https://main.{amplify_app.attr_default_domain}",
-            description="Amplify frontend URL",
         )
