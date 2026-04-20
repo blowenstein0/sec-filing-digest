@@ -1,56 +1,20 @@
-// Compare queries are now handled by the unified /api/research/query route.
-// The agent detects comparison intent and fetches data for multiple companies.
-// This route redirects for backward compatibility.
+// Backward compatibility — rewrites structured compare requests into natural-language
+// queries and forwards to the unified /api/research/query route.
 
-import { runResearchAgent } from "@/lib/agent/orchestrator";
+import { POST as queryPost } from "@/app/api/research/query/route";
 
 export async function POST(request: Request) {
   const body = await request.json();
   const { tickers, query } = body;
 
-  // Build a natural language query from the structured input
   const naturalQuery =
     query || `Compare ${(tickers as string[]).join(" vs ")} on key financial metrics.`;
 
-  const encoder = new TextEncoder();
-
-  const stream = new ReadableStream({
-    async start(controller) {
-      function sendEvent(type: string, data: Record<string, unknown>) {
-        const payload = JSON.stringify({ type, ...data });
-        controller.enqueue(encoder.encode(`data: ${payload}\n\n`));
-      }
-
-      try {
-        const result = await runResearchAgent(naturalQuery, [], (step) => {
-          sendEvent("progress", {
-            step: step.label,
-            status: step.status,
-            detail: step.detail,
-          });
-        });
-
-        sendEvent("answer", {
-          content: result.answer,
-          sources: result.sources,
-          comparison: result.comparison || null,
-          steps: result.steps,
-        });
-      } catch (err) {
-        const message =
-          err instanceof Error ? err.message : "Research failed";
-        sendEvent("error", { message });
-      } finally {
-        controller.close();
-      }
-    },
+  const forwarded = new Request(request.url, {
+    method: "POST",
+    headers: request.headers,
+    body: JSON.stringify({ query: naturalQuery, history: [] }),
   });
 
-  return new Response(stream, {
-    headers: {
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache",
-      Connection: "keep-alive",
-    },
-  });
+  return queryPost(forwarded);
 }

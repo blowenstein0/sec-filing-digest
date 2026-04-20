@@ -1,11 +1,6 @@
-import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient, GetCommand, PutCommand } from "@aws-sdk/lib-dynamodb";
+import { GetCommand, PutCommand } from "@aws-sdk/lib-dynamodb";
+import { ddbClient } from "@/lib/dynamodb";
 import type { CompanyFacts, FinancialMetric, XBRLDataPoint } from "@/types";
-
-const ddbClient = DynamoDBDocumentClient.from(
-  new DynamoDBClient({ region: process.env.APP_REGION || process.env.AWS_REGION || "us-east-1" }),
-  { marshallOptions: { removeUndefinedValues: true } }
-);
 const FILING_TEXT_TABLE = process.env.FILING_TEXT_TABLE || "sec-filing-text";
 
 const EDGAR_HEADERS = {
@@ -15,7 +10,7 @@ const EDGAR_HEADERS = {
 
 const RATE_DELAY_MS = 150;
 
-function padCik(cik: string): string {
+export function padCik(cik: string): string {
   return cik.padStart(10, "0");
 }
 
@@ -334,77 +329,6 @@ export async function getLatest10K(
   return null;
 }
 
-// --- Fetch everything needed for a research query ---
-
-export interface ResearchData {
-  name: string;
-  cik: string;
-  ticker: string;
-  financials: FinancialMetric[];
-  filingSection?: string;
-  sectionName?: string;
-  latestFilingDate?: string;
-  latestFilingUrl?: string;
-}
-
-export async function gatherResearchData(
-  ticker: string,
-  options: {
-    financials?: boolean;
-    narrative?: "risk_factors" | "mda" | "business";
-  } = { financials: true }
-): Promise<ResearchData | null> {
-  const company = await lookupTicker(ticker);
-  if (!company) return null;
-
-  const result: ResearchData = {
-    name: company.name,
-    cik: company.cik,
-    ticker: ticker.toUpperCase(),
-    financials: [],
-  };
-
-  // Fetch financials and filing info in parallel where possible
-  const tasks: Promise<void>[] = [];
-
-  if (options.financials !== false) {
-    tasks.push(
-      fetchCompanyFacts(company.cik).then((facts) => {
-        if (facts) {
-          result.financials = extractFinancialMetrics(facts);
-        }
-      })
-    );
-  }
-
-  if (options.narrative) {
-    tasks.push(
-      (async () => {
-        const filing10K = await getLatest10K(company.cik);
-        if (!filing10K) return;
-
-        result.latestFilingDate = filing10K.filingDate;
-        const accNoFmt = filing10K.accessionNumber.replace(/-/g, "");
-        result.latestFilingUrl = `https://www.sec.gov/Archives/edgar/data/${company.cik}/${accNoFmt}/${filing10K.primaryDocument}`;
-
-        await delay(RATE_DELAY_MS);
-        const text = await fetchFilingText(
-          company.cik,
-          filing10K.accessionNumber,
-          filing10K.primaryDocument
-        );
-        if (text) {
-          result.filingSection = extractFilingSection(text, options.narrative!);
-          result.sectionName = options.narrative;
-        }
-      })()
-    );
-  }
-
-  await Promise.all(tasks);
-  return result;
-}
-
 // --- Format financials as text for LLM context ---
 
 export function formatFinancialsForLLM(
@@ -425,7 +349,7 @@ export function formatFinancialsForLLM(
   return lines.join("\n");
 }
 
-function formatNumber(value: number, label: string): string {
+export function formatNumber(value: number, label: string): string {
   if (label.includes("EPS")) return `$${value.toFixed(2)}`;
   const abs = Math.abs(value);
   if (abs >= 1e12) return `$${(value / 1e12).toFixed(1)}T`;

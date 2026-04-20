@@ -1,11 +1,8 @@
 import { cookies } from "next/headers";
 import { SESSION_COOKIE_NAME } from "@/lib/constants";
-import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient, GetCommand } from "@aws-sdk/lib-dynamodb";
+import { GetCommand } from "@aws-sdk/lib-dynamodb";
+import { ddbClient as client } from "@/lib/dynamodb";
 
-const client = DynamoDBDocumentClient.from(
-  new DynamoDBClient({ region: process.env.APP_REGION || process.env.AWS_REGION || "us-east-1" })
-);
 const SESSIONS_TABLE = process.env.SESSIONS_TABLE || "sec-filing-sessions";
 
 export async function getSessionToken(): Promise<string | null> {

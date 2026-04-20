@@ -1,10 +1,6 @@
 import SignupForm from "@/components/signup/SignupForm";
 
-export default function SignupPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ error?: string }>;
-}) {
+export default function SignupPage() {
   return (
     <div className="max-w-md mx-auto px-4 py-16">
       <h1 className="text-2xl font-bold text-gray-900 text-center">

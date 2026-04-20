@@ -124,9 +124,7 @@ export async function runResearchAgent(
           "toolUse" in block
       );
 
-      const toolResults: BedrockContentBlock[] = [];
-
-      for (const block of toolUseBlocks) {
+      const toolPromises = toolUseBlocks.map(async (block) => {
         const toolUse = block.toolUse!;
         const toolUseId = toolUse.toolUseId || "unknown";
         const name = toolUse.name || "unknown";
@@ -159,29 +157,30 @@ export async function runResearchAgent(
             comparisonMeta.set(result.meta.ticker, existing);
           }
 
-          toolResults.push({
+          markLastRunningComplete(allSteps);
+
+          return {
             toolResult: {
               toolUseId,
               content: [{ text: resultText }],
-              status: "success",
+              status: "success" as const,
             },
-          });
-
-          markLastRunningComplete(allSteps);
+          };
         } catch (err) {
           const errorMsg = err instanceof Error ? err.message : "Tool execution failed";
+          markLastRunningError(allSteps, errorMsg);
 
-          toolResults.push({
+          return {
             toolResult: {
               toolUseId,
               content: [{ text: `Error: ${errorMsg}` }],
-              status: "error",
+              status: "error" as const,
             },
-          });
-
-          markLastRunningError(allSteps, errorMsg);
+          };
         }
-      }
+      });
+
+      const toolResults: BedrockContentBlock[] = await Promise.all(toolPromises);
 
       // Send tool results back to the model
       messages.push({ role: "user", content: toolResults });

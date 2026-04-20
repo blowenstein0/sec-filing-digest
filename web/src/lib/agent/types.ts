@@ -1,12 +1,6 @@
-import type { Citation, ComparisonData } from "@/types";
+import type { AgentStep, Citation, ComparisonData } from "@/types";
 
-export interface AgentStep {
-  id: string;
-  label: string;
-  detail?: string;
-  status: "running" | "complete" | "error";
-  timestamp: string;
-}
+export type { AgentStep };
 
 export interface AgentResult {
   answer: string;

@@ -1,6 +1,10 @@
 import { SESClient, SendEmailCommand } from "@aws-sdk/client-ses";
 import { BASE_URL } from "@/lib/constants";
 
+function escapeHtml(str: string): string {
+  return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
 const ses = new SESClient({ region: process.env.APP_REGION || process.env.AWS_REGION || "us-east-1" });
 const SENDER_EMAIL = process.env.SENDER_EMAIL || "filings@example.com";
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "admin@example.com";
@@ -63,7 +67,7 @@ export async function sendNewSignupNotification(email: string): Promise<void> {
       Subject: { Data: `New SEC Filing Digest signup: ${email}`, Charset: "UTF-8" },
       Body: {
         Html: {
-          Data: `<p><strong>${email}</strong> just signed up for SEC Filing Digest.</p><p style="color:#888;font-size:13px;">${now}</p>`,
+          Data: `<p><strong>${escapeHtml(email)}</strong> just signed up for SEC Filing Digest.</p><p style="color:#888;font-size:13px;">${now}</p>`,
           Charset: "UTF-8",
         },
       },
