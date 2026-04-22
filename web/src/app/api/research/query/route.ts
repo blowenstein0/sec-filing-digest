@@ -1,5 +1,6 @@
 import { runResearchAgent } from "@/lib/agent/orchestrator";
 import { saveResearchLog } from "@/lib/research-log";
+import { checkAndIncrementResearchDaily } from "@/lib/rate-limit";
 
 export async function POST(request: Request) {
   const email = "guest@research";
@@ -9,6 +10,14 @@ export async function POST(request: Request) {
 
   if (!query || typeof query !== "string") {
     return Response.json({ error: "Query required" }, { status: 400 });
+  }
+
+  const cap = await checkAndIncrementResearchDaily();
+  if (!cap.ok) {
+    return Response.json(
+      { error: `Daily research query limit (${cap.limit}) reached. Please try again tomorrow.` },
+      { status: 429 }
+    );
   }
 
   const chatHistory: { role: string; content: string }[] =

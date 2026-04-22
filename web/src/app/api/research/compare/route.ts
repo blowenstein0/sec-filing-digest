@@ -3,6 +3,7 @@
 // This route redirects for backward compatibility.
 
 import { runResearchAgent } from "@/lib/agent/orchestrator";
+import { checkAndIncrementResearchDaily } from "@/lib/rate-limit";
 
 export async function POST(request: Request) {
   const body = await request.json();
@@ -11,6 +12,14 @@ export async function POST(request: Request) {
   // Build a natural language query from the structured input
   const naturalQuery =
     query || `Compare ${(tickers as string[]).join(" vs ")} on key financial metrics.`;
+
+  const cap = await checkAndIncrementResearchDaily();
+  if (!cap.ok) {
+    return Response.json(
+      { error: `Daily research query limit (${cap.limit}) reached. Please try again tomorrow.` },
+      { status: 429 }
+    );
+  }
 
   const encoder = new TextEncoder();
 
