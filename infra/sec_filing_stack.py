@@ -544,194 +544,198 @@ def handler(event, context):
             domain_name="zipperdatabrief.com",
         )
 
-        # --- ECR Repository (already exists from prior deploy) ---
-        web_repo = ecr.Repository.from_repository_name(
-            self, "WebEcrRepo", "sec-filing-web",
-        )
+        # --- Web frontend (ALB + Fargate). Gated off to save ~$40/mo.
+        # Relaunch with: cdk deploy -c deploy_web=true ---
+        deploy_web = self.node.try_get_context("deploy_web")
+        if deploy_web:
+            # --- ECR Repository (already exists from prior deploy) ---
+            web_repo = ecr.Repository.from_repository_name(
+                self, "WebEcrRepo", "sec-filing-web",
+            )
 
-        # --- Fargate VPC (2 AZs, public only, no NAT) ---
-        fargate_vpc = ec2.Vpc(
-            self, "FargateVpc",
-            max_azs=2,
-            nat_gateways=0,
-            subnet_configuration=[
-                ec2.SubnetConfiguration(
-                    name="Public",
-                    subnet_type=ec2.SubnetType.PUBLIC,
-                    cidr_mask=24,
+            # --- Fargate VPC (2 AZs, public only, no NAT) ---
+            fargate_vpc = ec2.Vpc(
+                self, "FargateVpc",
+                max_azs=2,
+                nat_gateways=0,
+                subnet_configuration=[
+                    ec2.SubnetConfiguration(
+                        name="Public",
+                        subnet_type=ec2.SubnetType.PUBLIC,
+                        cidr_mask=24,
+                    ),
+                ],
+            )
+
+            # --- ACM Certificate ---
+            certificate = acm.Certificate(
+                self, "WebCert",
+                domain_name="sec.zipperdatabrief.com",
+                subject_alternative_names=["sec-v2.zipperdatabrief.com"],
+                validation=acm.CertificateValidation.from_dns(brief_zone),
+            )
+
+            # --- ECS Cluster ---
+            cluster = ecs.Cluster(
+                self, "WebCluster",
+                cluster_name="sec-filing-web",
+                vpc=fargate_vpc,
+            )
+
+            # --- Fargate Task Role ---
+            fargate_task_role = iam.Role(
+                self, "FargateTaskRole",
+                assumed_by=iam.ServicePrincipal("ecs-tasks.amazonaws.com"),
+            )
+            for table in [users_table, sessions_table, magic_links_table, watchlists_table, research_logs_table]:
+                table.grant_read_write_data(fargate_task_role)
+            metrics_table.grant_read_data(fargate_task_role)
+            filing_text_table.grant_read_write_data(fargate_task_role)
+            filing_bucket.grant_read_write(fargate_task_role)
+            fargate_task_role.add_to_policy(iam.PolicyStatement(
+                actions=["bedrock:Retrieve"],
+                resources=[kb.attr_knowledge_base_arn],
+            ))
+            fargate_task_role.add_to_policy(iam.PolicyStatement(
+                actions=["ses:SendEmail", "ses:SendRawEmail"],
+                resources=["*"],
+            ))
+            fargate_task_role.add_to_policy(iam.PolicyStatement(
+                actions=["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"],
+                resources=["*"],
+            ))
+            fargate_task_role.add_to_policy(iam.PolicyStatement(
+                actions=["aws-marketplace:ViewSubscriptions", "aws-marketplace:Subscribe"],
+                resources=["*"],
+            ))
+
+            # --- Task Definition (ARM64 for cost + native builds) ---
+            task_definition = ecs.FargateTaskDefinition(
+                self, "WebTaskDef",
+                memory_limit_mib=512,
+                cpu=256,
+                task_role=fargate_task_role,
+                runtime_platform=ecs.RuntimePlatform(
+                    cpu_architecture=ecs.CpuArchitecture.ARM64,
+                    operating_system_family=ecs.OperatingSystemFamily.LINUX,
                 ),
-            ],
-        )
+            )
 
-        # --- ACM Certificate ---
-        certificate = acm.Certificate(
-            self, "WebCert",
-            domain_name="sec.zipperdatabrief.com",
-            subject_alternative_names=["sec-v2.zipperdatabrief.com"],
-            validation=acm.CertificateValidation.from_dns(brief_zone),
-        )
+            fargate_log_group = logs.LogGroup(
+                self, "FargateWebLogGroup",
+                log_group_name="/sec-filing-digest/fargate-web",
+                retention=logs.RetentionDays.ONE_MONTH,
+                removal_policy=cdk.RemovalPolicy.DESTROY,
+            )
 
-        # --- ECS Cluster ---
-        cluster = ecs.Cluster(
-            self, "WebCluster",
-            cluster_name="sec-filing-web",
-            vpc=fargate_vpc,
-        )
+            task_definition.add_container(
+                "web",
+                image=ecs.ContainerImage.from_ecr_repository(web_repo, tag="latest"),
+                logging=ecs.LogDrivers.aws_logs(
+                    stream_prefix="web",
+                    log_group=fargate_log_group,
+                ),
+                environment={
+                    "APP_REGION": "us-east-1",
+                    "USERS_TABLE": users_table.table_name,
+                    "SESSIONS_TABLE": sessions_table.table_name,
+                    "MAGIC_LINKS_TABLE": magic_links_table.table_name,
+                    "WATCHLISTS_TABLE": watchlists_table.table_name,
+                    "METRICS_TABLE": "sec-financial-metrics",
+                    "RESEARCH_LOGS_TABLE": research_logs_table.table_name,
+                    "SENDER_EMAIL": sender_email,
+                    "ADMIN_EMAIL": admin_email,
+                    "EDGAR_USER_AGENT": edgar_user_agent,
+                    "BASE_URL": "https://sec.zipperdatabrief.com",
+                    "NEXT_PUBLIC_BASE_URL": "https://sec.zipperdatabrief.com",
+                    "BEDROCK_MODEL_ID": "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+                    "BEDROCK_SONNET_MODEL_ID": "us.anthropic.claude-sonnet-4-20250514-v1:0",
+                    "BEDROCK_OPUS_MODEL_ID": "us.anthropic.claude-opus-4-6-v1",
+                    "FILING_TEXT_TABLE": "sec-filing-text",
+                    "KNOWLEDGE_BASE_ID": kb.attr_knowledge_base_id,
+                    "FILING_TEXT_BUCKET": filing_bucket.bucket_name,
+                    "HOSTNAME": "0.0.0.0",
+                },
+                port_mappings=[ecs.PortMapping(container_port=3000, protocol=ecs.Protocol.TCP)],
+                health_check=ecs.HealthCheck(
+                    command=["CMD-SHELL", "wget -q --spider http://localhost:3000/ || exit 1"],
+                    interval=cdk.Duration.seconds(30),
+                    timeout=cdk.Duration.seconds(5),
+                    retries=3,
+                    start_period=cdk.Duration.seconds(60),
+                ),
+            )
 
-        # --- Fargate Task Role ---
-        fargate_task_role = iam.Role(
-            self, "FargateTaskRole",
-            assumed_by=iam.ServicePrincipal("ecs-tasks.amazonaws.com"),
-        )
-        for table in [users_table, sessions_table, magic_links_table, watchlists_table, research_logs_table]:
-            table.grant_read_write_data(fargate_task_role)
-        metrics_table.grant_read_data(fargate_task_role)
-        filing_text_table.grant_read_write_data(fargate_task_role)
-        filing_bucket.grant_read_write(fargate_task_role)
-        fargate_task_role.add_to_policy(iam.PolicyStatement(
-            actions=["bedrock:Retrieve"],
-            resources=[kb.attr_knowledge_base_arn],
-        ))
-        fargate_task_role.add_to_policy(iam.PolicyStatement(
-            actions=["ses:SendEmail", "ses:SendRawEmail"],
-            resources=["*"],
-        ))
-        fargate_task_role.add_to_policy(iam.PolicyStatement(
-            actions=["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"],
-            resources=["*"],
-        ))
-        fargate_task_role.add_to_policy(iam.PolicyStatement(
-            actions=["aws-marketplace:ViewSubscriptions", "aws-marketplace:Subscribe"],
-            resources=["*"],
-        ))
+            # --- ALB ---
+            alb = elbv2.ApplicationLoadBalancer(
+                self, "WebAlb",
+                vpc=fargate_vpc,
+                internet_facing=True,
+                load_balancer_name="sec-filing-web",
+            )
+            # 65s idle timeout for long research requests
+            alb.set_attribute("idle_timeout.timeout_seconds", "65")
 
-        # --- Task Definition (ARM64 for cost + native builds) ---
-        task_definition = ecs.FargateTaskDefinition(
-            self, "WebTaskDef",
-            memory_limit_mib=512,
-            cpu=256,
-            task_role=fargate_task_role,
-            runtime_platform=ecs.RuntimePlatform(
-                cpu_architecture=ecs.CpuArchitecture.ARM64,
-                operating_system_family=ecs.OperatingSystemFamily.LINUX,
-            ),
-        )
+            alb.add_listener(
+                "HttpRedirect",
+                port=80,
+                default_action=elbv2.ListenerAction.redirect(
+                    protocol="HTTPS", port="443", permanent=True,
+                ),
+            )
 
-        fargate_log_group = logs.LogGroup(
-            self, "FargateWebLogGroup",
-            log_group_name="/sec-filing-digest/fargate-web",
-            retention=logs.RetentionDays.ONE_MONTH,
-            removal_policy=cdk.RemovalPolicy.DESTROY,
-        )
+            https_listener = alb.add_listener(
+                "HttpsListener",
+                port=443,
+                certificates=[certificate],
+                ssl_policy=elbv2.SslPolicy.RECOMMENDED_TLS,
+            )
 
-        task_definition.add_container(
-            "web",
-            image=ecs.ContainerImage.from_ecr_repository(web_repo, tag="latest"),
-            logging=ecs.LogDrivers.aws_logs(
-                stream_prefix="web",
-                log_group=fargate_log_group,
-            ),
-            environment={
-                "APP_REGION": "us-east-1",
-                "USERS_TABLE": users_table.table_name,
-                "SESSIONS_TABLE": sessions_table.table_name,
-                "MAGIC_LINKS_TABLE": magic_links_table.table_name,
-                "WATCHLISTS_TABLE": watchlists_table.table_name,
-                "METRICS_TABLE": "sec-financial-metrics",
-                "RESEARCH_LOGS_TABLE": research_logs_table.table_name,
-                "SENDER_EMAIL": sender_email,
-                "ADMIN_EMAIL": admin_email,
-                "EDGAR_USER_AGENT": edgar_user_agent,
-                "BASE_URL": "https://sec.zipperdatabrief.com",
-                "NEXT_PUBLIC_BASE_URL": "https://sec.zipperdatabrief.com",
-                "BEDROCK_MODEL_ID": "us.anthropic.claude-haiku-4-5-20251001-v1:0",
-                "BEDROCK_SONNET_MODEL_ID": "us.anthropic.claude-sonnet-4-20250514-v1:0",
-                "BEDROCK_OPUS_MODEL_ID": "us.anthropic.claude-opus-4-6-v1",
-                "FILING_TEXT_TABLE": "sec-filing-text",
-                "KNOWLEDGE_BASE_ID": kb.attr_knowledge_base_id,
-                "FILING_TEXT_BUCKET": filing_bucket.bucket_name,
-                "HOSTNAME": "0.0.0.0",
-            },
-            port_mappings=[ecs.PortMapping(container_port=3000, protocol=ecs.Protocol.TCP)],
-            health_check=ecs.HealthCheck(
-                command=["CMD-SHELL", "wget -q --spider http://localhost:3000/ || exit 1"],
-                interval=cdk.Duration.seconds(30),
-                timeout=cdk.Duration.seconds(5),
-                retries=3,
-                start_period=cdk.Duration.seconds(60),
-            ),
-        )
+            # --- Fargate Service ---
+            fargate_service = ecs.FargateService(
+                self, "WebService",
+                cluster=cluster,
+                task_definition=task_definition,
+                desired_count=1,
+                assign_public_ip=True,
+                vpc_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PUBLIC),
+            )
 
-        # --- ALB ---
-        alb = elbv2.ApplicationLoadBalancer(
-            self, "WebAlb",
-            vpc=fargate_vpc,
-            internet_facing=True,
-            load_balancer_name="sec-filing-web",
-        )
-        # 65s idle timeout for long research requests
-        alb.set_attribute("idle_timeout.timeout_seconds", "65")
+            https_listener.add_targets(
+                "WebTarget",
+                port=3000,
+                protocol=elbv2.ApplicationProtocol.HTTP,
+                targets=[fargate_service],
+                health_check=elbv2.HealthCheck(
+                    path="/",
+                    healthy_http_codes="200",
+                    interval=cdk.Duration.seconds(30),
+                    timeout=cdk.Duration.seconds(10),
+                ),
+                deregistration_delay=cdk.Duration.seconds(30),
+            )
 
-        alb.add_listener(
-            "HttpRedirect",
-            port=80,
-            default_action=elbv2.ListenerAction.redirect(
-                protocol="HTTPS", port="443", permanent=True,
-            ),
-        )
+            # --- Route53: sec-v2 for testing, swap to sec later ---
+            route53.ARecord(
+                self, "WebARecord",
+                zone=brief_zone,
+                record_name="sec",
+                target=route53.RecordTarget.from_alias(
+                    targets.LoadBalancerTarget(alb),
+                ),
+            )
 
-        https_listener = alb.add_listener(
-            "HttpsListener",
-            port=443,
-            certificates=[certificate],
-            ssl_policy=elbv2.SslPolicy.RECOMMENDED_TLS,
-        )
-
-        # --- Fargate Service ---
-        fargate_service = ecs.FargateService(
-            self, "WebService",
-            cluster=cluster,
-            task_definition=task_definition,
-            desired_count=1,
-            assign_public_ip=True,
-            vpc_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PUBLIC),
-        )
-
-        https_listener.add_targets(
-            "WebTarget",
-            port=3000,
-            protocol=elbv2.ApplicationProtocol.HTTP,
-            targets=[fargate_service],
-            health_check=elbv2.HealthCheck(
-                path="/",
-                healthy_http_codes="200",
-                interval=cdk.Duration.seconds(30),
-                timeout=cdk.Duration.seconds(10),
-            ),
-            deregistration_delay=cdk.Duration.seconds(30),
-        )
-
-        # --- Route53: sec-v2 for testing, swap to sec later ---
-        route53.ARecord(
-            self, "WebARecord",
-            zone=brief_zone,
-            record_name="sec",
-            target=route53.RecordTarget.from_alias(
-                targets.LoadBalancerTarget(alb),
-            ),
-        )
-
-        # --- Outputs ---
-        cdk.CfnOutput(self, "EcrRepoUri",
-            value=web_repo.repository_uri,
-            description="ECR repo for docker push",
-        )
-        cdk.CfnOutput(self, "AlbDnsName",
-            value=alb.load_balancer_dns_name,
-        )
-        cdk.CfnOutput(self, "FargateLogGroupOutput",
-            value=fargate_log_group.log_group_name,
-        )
+            # --- Outputs ---
+            cdk.CfnOutput(self, "EcrRepoUri",
+                value=web_repo.repository_uri,
+                description="ECR repo for docker push",
+            )
+            cdk.CfnOutput(self, "AlbDnsName",
+                value=alb.load_balancer_dns_name,
+            )
+            cdk.CfnOutput(self, "FargateLogGroupOutput",
+                value=fargate_log_group.log_group_name,
+            )
 
         # --- Outputs ---
         cdk.CfnOutput(self, "InstanceId",
