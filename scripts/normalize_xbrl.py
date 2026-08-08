@@ -85,15 +85,17 @@ def fetch_company_facts(cik: str) -> dict:
     return resp.json()
 
 
+_ticker_cache = {}
+
 def lookup_ticker(ticker: str) -> dict:
     """Resolve ticker to CIK and company name."""
-    url = "https://www.sec.gov/files/company_tickers.json"
-    resp = requests.get(url, headers=EDGAR_HEADERS, timeout=15)
-    data = resp.json()
-    for entry in data.values():
-        if entry["ticker"].upper() == ticker.upper():
-            return {"cik": str(entry["cik_str"]), "name": entry["title"]}
-    return None
+    if not _ticker_cache:
+        url = "https://www.sec.gov/files/company_tickers.json"
+        resp = requests.get(url, headers=EDGAR_HEADERS, timeout=15)
+        data = resp.json()
+        for entry in data.values():
+            _ticker_cache[entry["ticker"].upper()] = {"cik": str(entry["cik_str"]), "name": entry["title"]}
+    return _ticker_cache.get(ticker.upper())
 
 
 def extract_period_year(end_date: str) -> int:

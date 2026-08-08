@@ -11,9 +11,12 @@ import {
 import { randomUUID } from "crypto";
 import type { User, Cadence, WatchlistEntry } from "@/types";
 
-const client = DynamoDBDocumentClient.from(
-  new DynamoDBClient({ region: process.env.APP_REGION || process.env.AWS_REGION || "us-east-1" })
+export const ddbClient = DynamoDBDocumentClient.from(
+  new DynamoDBClient({ region: process.env.APP_REGION || process.env.AWS_REGION || "us-east-1" }),
+  { marshallOptions: { removeUndefinedValues: true } }
 );
+
+const client = ddbClient;
 
 const USERS_TABLE = process.env.USERS_TABLE || "sec-filing-users";
 const SESSIONS_TABLE = process.env.SESSIONS_TABLE || "sec-filing-sessions";

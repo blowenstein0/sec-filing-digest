@@ -1,13 +1,8 @@
-import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient, PutCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
+import { PutCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import { randomUUID } from "crypto";
-import type { AgentStep } from "@/lib/agent/types";
+import { ddbClient as client } from "@/lib/dynamodb";
+import type { AgentStep } from "@/types";
 import type { Citation, ComparisonData } from "@/types";
-
-const client = DynamoDBDocumentClient.from(
-  new DynamoDBClient({ region: process.env.APP_REGION || process.env.AWS_REGION || "us-east-1" }),
-  { marshallOptions: { removeUndefinedValues: true } }
-);
 const TABLE = process.env.RESEARCH_LOGS_TABLE || "sec-research-logs";
 
 export interface ResearchLogEntry {

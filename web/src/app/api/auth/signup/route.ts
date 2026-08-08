@@ -1,7 +1,13 @@
 import { getUser, createUser, createMagicLink } from "@/lib/dynamodb";
 import { sendMagicLinkEmail, sendNewSignupNotification } from "@/lib/ses";
+import { rateLimit } from "@/lib/rate-limit";
 
 export async function POST(request: Request) {
+  const { limited } = rateLimit(request, { maxRequests: 5, windowMs: 60_000 });
+  if (limited) {
+    return Response.json({ error: "Too many requests. Try again later." }, { status: 429 });
+  }
+
   const { email } = await request.json();
 
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import html
 import json
 import logging
 import os
@@ -15,11 +16,7 @@ import requests
 from botocore.exceptions import ClientError
 
 # --- Configuration ---
-EDGAR_RSS_BASE = "https://efts.sec.gov/LATEST/search-index"
-EDGAR_FULL_TEXT_SEARCH = "https://efts.sec.gov/LATEST/search-index"
-EDGAR_FILING_API = "https://efts.sec.gov/LATEST/search-index"
 EDGAR_COMPANY_FILINGS = "https://data.sec.gov/submissions/CIK{cik}.json"
-EDGAR_FILING_INDEX = "https://www.sec.gov/cgi-bin/browse-edgar"
 
 # EDGAR requires a User-Agent header with contact info
 EDGAR_USER_AGENT = os.environ.get(
@@ -307,11 +304,11 @@ Filing text (truncated):
 
 # --- Email Delivery ---
 
-def build_digest_html(user_email: str, filings_by_company: dict[str, list[dict]], tickers: list[str] | None = None) -> str:
+def build_digest_html(user_email: str, filings_by_company: dict[str, list[dict]], tickers: list[str] | None = None, unsubscribe_token: str | None = None) -> str:
     """Build the HTML email digest for a user."""
     ticker_line = ""
     if tickers:
-        ticker_line = f'<p style="color:#666;margin-top:4px;font-size:14px;">Watching: {" &middot; ".join(sorted(tickers))}</p>'
+        ticker_line = f'<p style="color:#666;margin-top:4px;font-size:14px;">Watching: {" &middot; ".join(html.escape(t) for t in sorted(tickers))}</p>'
 
     sections = []
 
@@ -322,13 +319,13 @@ def build_digest_html(user_email: str, filings_by_company: dict[str, list[dict]]
             padded_cik = pad_cik(f["cik"])
             filing_url = f"https://www.sec.gov/Archives/edgar/data/{padded_cik}/{acc_no_dashes}/{f['primary_document']}"
 
-            summary_html = f"<p style='color:#555;margin:4px 0 12px 0;'>{f.get('summary', '')}</p>" if f.get("summary") else ""
+            summary_html = f"<p style='color:#555;margin:4px 0 12px 0;'>{html.escape(f.get('summary', ''))}</p>" if f.get("summary") else ""
 
             filing_rows.append(f"""
             <tr>
                 <td style="padding:8px 12px;border-bottom:1px solid #eee;">
-                    <a href="{filing_url}" style="color:#1a73e8;font-weight:600;">{f['form_type']}</a>
-                    <span style="color:#888;margin-left:8px;">{f['filed_at']}</span>
+                    <a href="{filing_url}" style="color:#1a73e8;font-weight:600;">{html.escape(f['form_type'])}</a>
+                    <span style="color:#888;margin-left:8px;">{html.escape(f['filed_at'])}</span>
                     {summary_html}
                 </td>
             </tr>""")
@@ -337,7 +334,7 @@ def build_digest_html(user_email: str, filings_by_company: dict[str, list[dict]]
         <table style="width:100%;border-collapse:collapse;margin-bottom:24px;">
             <tr>
                 <td style="padding:8px 12px;background:#f8f9fa;font-weight:700;font-size:16px;border-bottom:2px solid #dee2e6;">
-                    {company_name}
+                    {html.escape(company_name)}
                 </td>
             </tr>
             {"".join(filing_rows)}
@@ -360,7 +357,7 @@ def build_digest_html(user_email: str, filings_by_company: dict[str, list[dict]]
     </p>
     <p style="font-size:12px;color:#999;">
         You're receiving this because you subscribed to SEC filing alerts on Zipper Data Brief.
-        <br><a href="https://sec.zipperdatabrief.com/unsubscribe?email={user_email}" style="color:#999;">Unsubscribe</a>
+        <br><a href="https://sec.zipperdatabrief.com/unsubscribe?token={unsubscribe_token or ''}" style="color:#999;">Unsubscribe</a>
         | <a href="https://sec.zipperdatabrief.com/dashboard" style="color:#999;">Manage preferences</a>
     </p>
 </body>
@@ -495,7 +492,7 @@ def send_digests():
         tickers = [e.get("ticker", "").upper() for e in watchlist if e.get("ticker")]
 
         try:
-            html_body = build_digest_html(email, filings_by_company, tickers=tickers)
+            html_body = build_digest_html(email, filings_by_company, tickers=tickers, unsubscribe_token=user.get("unsubscribeToken"))
             send_digest_email(ses, email, html_body)
         except Exception as e:
             log.error("Failed to send digest to %s: %s", email, e)

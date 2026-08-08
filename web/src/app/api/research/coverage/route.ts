@@ -1,9 +1,6 @@
-import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient, ScanCommand } from "@aws-sdk/lib-dynamodb";
+import { ScanCommand } from "@aws-sdk/lib-dynamodb";
+import { ddbClient as client } from "@/lib/dynamodb";
 
-const client = DynamoDBDocumentClient.from(
-  new DynamoDBClient({ region: process.env.APP_REGION || process.env.AWS_REGION || "us-east-1" })
-);
 const METRICS_TABLE = process.env.METRICS_TABLE || "sec-financial-metrics";
 
 export async function GET() {
